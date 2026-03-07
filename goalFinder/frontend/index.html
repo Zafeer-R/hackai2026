@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Goal Finder Text Mode</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f1ea;
+        --panel: #fffdf8;
+        --panel-border: #d9d1c3;
+        --text: #1f1f1c;
+        --muted: #666257;
+        --accent: #1b6b5c;
+        --accent-strong: #155347;
+        --user-bubble: #1f3b73;
+        --ai-bubble: #ece6d9;
+        --danger: #9d2b2b;
+        --shadow: 0 18px 45px rgba(31, 31, 28, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(27, 107, 92, 0.15), transparent 28%),
+          linear-gradient(180deg, #faf7f1 0%, var(--bg) 100%);
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      .app-shell {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 32px 18px 48px;
+      }
+
+      .module-header {
+        margin-bottom: 24px;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        margin-bottom: 10px;
+        padding: 6px 10px;
+        border: 1px solid rgba(27, 107, 92, 0.25);
+        border-radius: 999px;
+        color: var(--accent);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .module-header h1 {
+        margin: 0 0 8px;
+        font-size: clamp(2rem, 4vw, 3.3rem);
+        line-height: 1;
+      }
+
+      .module-header p {
+        margin: 0;
+        max-width: 680px;
+        color: var(--muted);
+        font-size: 1.05rem;
+        line-height: 1.5;
+      }
+
+      .chat-panel,
+      .goal-panel {
+        background: rgba(255, 253, 248, 0.92);
+        border: 1px solid var(--panel-border);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .chat-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 70vh;
+        overflow: hidden;
+      }
+
+      .panel-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        padding: 22px 24px;
+        border-bottom: 1px solid rgba(217, 209, 195, 0.8);
+      }
+
+      .panel-top h2 {
+        margin: 0 0 4px;
+        font-size: 1.2rem;
+      }
+
+      .panel-top p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .status-pill {
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        border: 1px solid transparent;
+      }
+
+      .status-open {
+        color: #0d5f50;
+        background: rgba(27, 107, 92, 0.1);
+        border-color: rgba(27, 107, 92, 0.18);
+      }
+
+      .status-closed {
+        color: #7f5a16;
+        background: rgba(181, 137, 32, 0.12);
+        border-color: rgba(181, 137, 32, 0.18);
+      }
+
+      .status-error {
+        color: var(--danger);
+        background: rgba(157, 43, 43, 0.1);
+        border-color: rgba(157, 43, 43, 0.18);
+      }
+
+      .messages {
+        flex: 1;
+        padding: 22px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .empty-state {
+        margin: auto;
+        max-width: 520px;
+        text-align: center;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .message-row {
+        display: flex;
+      }
+
+      .message-row.user {
+        justify-content: flex-end;
+      }
+
+      .message-row.ai {
+        justify-content: flex-start;
+      }
+
+      .bubble {
+        max-width: min(78%, 620px);
+        padding: 14px 16px;
+        border-radius: 18px;
+        white-space: pre-wrap;
+        line-height: 1.5;
+        word-break: break-word;
+      }
+
+      .bubble.user {
+        color: #fff;
+        background: linear-gradient(180deg, #27498e 0%, var(--user-bubble) 100%);
+        border-bottom-right-radius: 6px;
+      }
+
+      .bubble.ai {
+        color: var(--text);
+        background: var(--ai-bubble);
+        border: 1px solid rgba(31, 31, 28, 0.06);
+        border-bottom-left-radius: 6px;
+      }
+
+      .typing-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .typing-dots {
+        display: inline-flex;
+        gap: 6px;
+      }
+
+      .typing-dots span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        opacity: 0.25;
+        animation: pulse 1.2s infinite ease-in-out;
+      }
+
+      .typing-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes pulse {
+        0%,
+        80%,
+        100% {
+          transform: scale(0.9);
+          opacity: 0.25;
+        }
+        40% {
+          transform: scale(1.05);
+          opacity: 1;
+        }
+      }
+
+      .composer {
+        padding: 18px 20px 20px;
+        border-top: 1px solid rgba(217, 209, 195, 0.8);
+        background: rgba(255, 252, 245, 0.8);
+      }
+
+      .composer-form {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+      }
+
+      .composer-input {
+        width: 100%;
+        min-height: 56px;
+        max-height: 160px;
+        resize: vertical;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid #cfc5b3;
+        background: #fff;
+        color: var(--text);
+      }
+
+      .composer-input:focus {
+        outline: 2px solid rgba(27, 107, 92, 0.2);
+        border-color: var(--accent);
+      }
+
+      .send-button,
+      .restart-button {
+        border: 0;
+        cursor: pointer;
+        transition: transform 120ms ease, opacity 120ms ease, background 120ms ease;
+      }
+
+      .send-button {
+        min-width: 120px;
+        padding: 14px 18px;
+        border-radius: 16px;
+        color: #fff;
+        background: var(--accent);
+        align-self: end;
+      }
+
+      .send-button:hover,
+      .restart-button:hover {
+        transform: translateY(-1px);
+      }
+
+      .send-button:disabled,
+      .restart-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+        transform: none;
+      }
+
+      .helper-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .goal-panel {
+        padding: 28px;
+      }
+
+      .goal-panel h2 {
+        margin: 0 0 10px;
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        line-height: 1.1;
+      }
+
+      .goal-subtitle {
+        margin: 0 0 26px;
+        max-width: 700px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .goal-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .goal-field {
+        padding: 16px;
+        border-radius: 18px;
+        background: rgba(236, 230, 217, 0.55);
+        border: 1px solid rgba(217, 209, 195, 0.9);
+      }
+
+      .goal-field.wide {
+        grid-column: 1 / -1;
+      }
+
+      .goal-label {
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .goal-value {
+        font-size: 1rem;
+        line-height: 1.6;
+      }
+
+      .restart-button {
+        margin-top: 12px;
+        padding: 14px 18px;
+        border-radius: 16px;
+        color: #fff;
+        background: var(--accent-strong);
+      }
+
+      @media (max-width: 720px) {
+        .app-shell {
+          padding: 20px 14px 32px;
+        }
+
+        .chat-panel {
+          min-height: 76vh;
+        }
+
+        .panel-top {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .composer-form {
+          grid-template-columns: 1fr;
+        }
+
+        .send-button {
+          width: 100%;
+        }
+
+        .bubble {
+          max-width: 90%;
+        }
+
+        .goal-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+      const WS_URL = "ws://localhost:8000/ws/text";
+
+      function App() {
+        const [messages, setMessages] = React.useState([]);
+        const [input, setInput] = React.useState("");
+        const [isLoading, setIsLoading] = React.useState(false);
+        const [goal, setGoal] = React.useState(null);
+        const [status, setStatus] = React.useState("connecting");
+        const [errorText, setErrorText] = React.useState("");
+
+        const socketRef = React.useRef(null);
+        const messagesRef = React.useRef(null);
+
+        const connectWebSocket = React.useCallback(() => {
+          if (socketRef.current) {
+            socketRef.current.onopen = null;
+            socketRef.current.onmessage = null;
+            socketRef.current.onerror = null;
+            socketRef.current.onclose = null;
+            socketRef.current.close();
+          }
+
+          setStatus("connecting");
+          setErrorText("");
+          setIsLoading(false);
+
+          const socket = new WebSocket(WS_URL);
+          socketRef.current = socket;
+
+          socket.onopen = () => {
+            setStatus("open");
+          };
+
+          socket.onmessage = (event) => {
+            setIsLoading(false);
+
+            try {
+              const payload = JSON.parse(event.data);
+
+              if (payload.type === "message" && payload.text) {
+                setMessages((current) => [
+                  ...current,
+                  { id: crypto.randomUUID(), sender: "ai", text: payload.text },
+                ]);
+                return;
+              }
+
+              if (payload.type === "goal_complete" && payload.goal) {
+                setGoal(payload.goal);
+                return;
+              }
+
+              setMessages((current) => [
+                ...current,
+                { id: crypto.randomUUID(), sender: "ai", text: "Received an unexpected response from the server." },
+              ]);
+            } catch (error) {
+              setMessages((current) => [
+                ...current,
+                { id: crypto.randomUUID(), sender: "ai", text: "Could not parse the server response." },
+              ]);
+            }
+          };
+
+          socket.onerror = () => {
+            setStatus("error");
+            setIsLoading(false);
+            setErrorText("WebSocket connection failed. Make sure the FastAPI server is running on port 8000.");
+          };
+
+          socket.onclose = () => {
+            setStatus((current) => (current === "error" ? "error" : "closed"));
+            setIsLoading(false);
+          };
+        }, []);
+
+        React.useEffect(() => {
+          connectWebSocket();
+
+          return () => {
+            if (socketRef.current) {
+              socketRef.current.close();
+            }
+          };
+        }, [connectWebSocket]);
+
+        React.useEffect(() => {
+          if (!messagesRef.current) {
+            return;
+          }
+
+          messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+        }, [messages, isLoading]);
+
+        const handleSend = (event) => {
+          event.preventDefault();
+
+          const trimmed = input.trim();
+          if (!trimmed || isLoading) {
+            return;
+          }
+
+          const socket = socketRef.current;
+          if (!socket || socket.readyState !== WebSocket.OPEN) {
+            setErrorText("The connection is not open. Use Start Over or refresh after the backend is running.");
+            setStatus("closed");
+            return;
+          }
+
+          socket.send(JSON.stringify({ text: trimmed }));
+          setMessages((current) => [
+            ...current,
+            { id: crypto.randomUUID(), sender: "user", text: trimmed },
+          ]);
+          setInput("");
+          setIsLoading(true);
+          setErrorText("");
+        };
+
+        const handleStartOver = () => {
+          setMessages([]);
+          setInput("");
+          setGoal(null);
+          setErrorText("");
+          setIsLoading(false);
+          connectWebSocket();
+        };
+
+        const onInputKeyDown = (event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            handleSend(event);
+          }
+        };
+
+        const statusClassName =
+          status === "open" ? "status-pill status-open" : status === "error" ? "status-pill status-error" : "status-pill status-closed";
+
+        const statusLabel =
+          status === "open" ? "Connected" : status === "connecting" ? "Connecting" : status === "error" ? "Connection Error" : "Disconnected";
+
+        if (goal) {
+          return (
+            <main className="app-shell">
+              <header className="module-header">
+                <span className="eyebrow">Goal Extraction Demo</span>
+                <h1>Learning Goal Ready</h1>
+                <p>Your conversation is complete. The module has distilled the chat into a tighter, actionable learning target.</p>
+              </header>
+
+              <section className="goal-panel">
+                <h2>{goal.goal}</h2>
+                <p className="goal-subtitle">{goal.description}</p>
+
+                <div className="goal-grid">
+                  <div className="goal-field">
+                    <div className="goal-label">Level</div>
+                    <div className="goal-value">{goal.level}</div>
+                  </div>
+
+                  <div className="goal-field">
+                    <div className="goal-label">Time Per Day</div>
+                    <div className="goal-value">{goal.time_per_day_minutes} minutes</div>
+                  </div>
+
+                  <div className="goal-field wide">
+                    <div className="goal-label">Context</div>
+                    <div className="goal-value">{goal.context}</div>
+                  </div>
+                </div>
+
+                <button className="restart-button" onClick={handleStartOver}>
+                  Start Over
+                </button>
+              </section>
+            </main>
+          );
+        }
+
+        return (
+          <main className="app-shell">
+            <header className="module-header">
+              <span className="eyebrow">Goal Extraction Demo</span>
+              <h1>Text Mode</h1>
+              <p>Tell the coach what you want to learn. It will ask focused follow-ups, then convert the conversation into a clear learning goal.</p>
+            </header>
+
+            <section className="chat-panel">
+              <div className="panel-top">
+                <div>
+                  <h2>Conversation</h2>
+                  <p>One question at a time. The chat ends when a structured goal is ready.</p>
+                </div>
+                <div className={statusClassName}>{statusLabel}</div>
+              </div>
+
+              <div className="messages" ref={messagesRef}>
+                {messages.length === 0 ? (
+                  <div className="empty-state">
+                    Start with something broad like "I want to learn LLMs" or "I want to get better at system design."
+                  </div>
+                ) : (
+                  messages.map((message) => (
+                    <div key={message.id} className={`message-row ${message.sender}`}>
+                      <div className={`bubble ${message.sender}`}>{message.text}</div>
+                    </div>
+                  ))
+                )}
+
+                {isLoading ? (
+                  <div className="message-row ai">
+                    <div className="bubble ai">
+                      <div className="typing-row">
+                        <div className="typing-dots">
+                          <span></span>
+                          <span></span>
+                          <span></span>
+                        </div>
+                        <span>Thinking</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="composer">
+                <form className="composer-form" onSubmit={handleSend}>
+                  <textarea
+                    className="composer-input"
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={onInputKeyDown}
+                    placeholder="Describe what you want to learn..."
+                    disabled={status !== "open" || isLoading}
+                  />
+                  <button className="send-button" type="submit" disabled={status !== "open" || isLoading || !input.trim()}>
+                    {isLoading ? "Waiting..." : "Send"}
+                  </button>
+                </form>
+
+                <div className="helper-row">
+                  <span>Press Enter to send. Use Shift+Enter for a new line.</span>
+                  <span>{errorText || "Backend WebSocket: ws://localhost:8000/ws/text"}</span>
+                </div>
+              </div>
+            </section>
+          </main>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>
