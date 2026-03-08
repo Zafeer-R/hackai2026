@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ModuleGen — AI-Powered Learning</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #09090b;
+      --surface:      #18181b;
+      --surface2:     #27272a;
+      --accent:       #6366f1;
+      --accent-light: #818cf8;
+      --text:         #fafafa;
+      --muted:        #a1a1aa;
+      --border:       #3f3f46;
+      --success:      #22c55e;
+      --error:        #ef4444;
+      --r:            12px;
+      --r-sm:         6px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Hero ─────────────────────────────────────────────────────────── */
+    #hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .tagline { color: var(--muted); font-size: 1rem; margin-bottom: 2.5rem; }
+
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 2rem;
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.875rem;
+    }
+
+    input, select, textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.7rem 1rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+
+    .btn {
+      background: var(--accent);
+      border: none;
+      border-radius: var(--r-sm);
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.88; }
+    .btn:active:not(:disabled) { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Loading ──────────────────────────────────────────────────────── */
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+      min-height: 100vh;
+    }
+
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading-status { color: var(--muted); font-size: 0.95rem; }
+
+    .steps { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+    .steps li { color: var(--muted); font-size: 0.85rem; transition: color 0.3s; }
+    .steps li.active { color: var(--text); }
+    .steps li.done  { color: var(--success); }
+
+    /* ── Course ───────────────────────────────────────────────────────── */
+    #course { max-width: 900px; margin: 0 auto; padding: 2rem 1rem 5rem; }
+
+    .course-header {
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .meta-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.85rem; }
+
+    .badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      padding: 0.2rem 0.65rem;
+      text-transform: capitalize;
+    }
+    .badge.hi { background: rgba(99,102,241,.12); border-color: var(--accent); color: var(--accent-light); }
+
+    .course-title { font-size: 2rem; font-weight: 800; line-height: 1.2; margin-bottom: 0.75rem; }
+    .course-desc  { color: var(--muted); font-size: 0.92rem; max-width: 620px; }
+
+    /* ── Chapter ──────────────────────────────────────────────────────── */
+    .chapter { margin-bottom: 2.5rem; }
+
+    .ch-head { display: flex; align-items: flex-start; gap: 0.9rem; margin-bottom: 1.25rem; }
+    .ch-num  {
+      background: var(--accent); border-radius: var(--r-sm);
+      color: #fff; font-size: 0.72rem; font-weight: 700;
+      padding: 0.22rem 0.55rem; flex-shrink: 0; margin-top: 5px;
+    }
+    .ch-title { font-size: 1.35rem; font-weight: 700; }
+    .ch-summary { color: var(--muted); font-size: 0.9rem; max-width: 680px; margin-bottom: 1rem; }
+
+    .concepts { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 1.5rem; }
+    .pill {
+      background: rgba(99,102,241,.1);
+      border: 1px solid rgba(99,102,241,.3);
+      border-radius: 100px;
+      color: var(--accent-light);
+      font-size: 0.76rem;
+      padding: 0.18rem 0.65rem;
+    }
+
+    /* ── Content grid ─────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      gap: 0.875rem;
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "ai-video  ai-video"
+        "yt-video  yt-video"
+        "meme      article"
+        "song      song";
+      margin-bottom: 1.75rem;
+    }
+    @media (max-width: 600px) {
+      .grid {
+        grid-template-columns: 1fr;
+        grid-template-areas: "ai-video" "yt-video" "meme" "article" "song";
+      }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+    }
+
+    .card-label {
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      display: flex;
+      font-size: 0.7rem;
+      font-weight: 700;
+      gap: 0.4rem;
+      letter-spacing: .05em;
+      padding: 0.55rem 1rem;
+      text-transform: uppercase;
+    }
+
+    /* AI video */
+    .g-ai   { grid-area: ai-video; }
+    .g-yt   { grid-area: yt-video; }
+    .g-meme { grid-area: meme; }
+    .g-art  { grid-area: article; display: flex; flex-direction: column; }
+    .g-song { grid-area: song; }
+
+    .video-skeleton {
+      aspect-ratio: 16/9;
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0.6rem; color: var(--muted); font-size: 0.85rem;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    .skeleton-icon { font-size: 1.8rem; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+
+    video, iframe { display: block; width: 100%; aspect-ratio: 16/9; border: none; }
+
+    .yt-meta {
+      padding: 0.65rem 1rem;
+      display: flex; justify-content: space-between;
+      align-items: flex-start; flex-wrap: wrap; gap: 0.4rem;
+    }
+    .yt-title  { font-size: 0.82rem; font-weight: 600; }
+    .yt-stats  { color: var(--muted); font-size: 0.73rem; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .score-pill {
+      background: rgba(99,102,241,.15); color: var(--accent-light);
+      border-radius: 100px; font-size: 0.7rem; padding: 0.1rem 0.5rem;
+    }
+
+    .meme-img { width: 100%; display: block; }
+
+    .art-body { padding: 0.875rem 1rem; flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
+    .art-title { font-size: 0.85rem; font-weight: 600; }
+    .art-snippet {
+      color: var(--muted); font-size: 0.78rem; flex: 1;
+      display: -webkit-box; -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .art-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 0.4rem; }
+    .art-src  { color: var(--muted); font-size: 0.72rem; }
+    .read-btn {
+      background: transparent; border: 1px solid var(--border); border-radius: var(--r-sm);
+      color: var(--accent-light); cursor: pointer; font-size: 0.72rem; padding: 0.22rem 0.55rem;
+      text-decoration: none; transition: border-color 0.2s;
+    }
+    .read-btn:hover { border-color: var(--accent); }
+
+    .song-body { padding: 0.875rem 1rem; display: flex; align-items: center; gap: 1rem; }
+    .song-icon { font-size: 1.75rem; flex-shrink: 0; }
+    audio { flex: 1; height: 38px; }
+
+    /* ── Quiz ─────────────────────────────────────────────────────────── */
+    .quiz-wrap  { margin-bottom: 1.75rem; }
+    .quiz-head  { color: var(--muted); font-size: 0.7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 0.75rem; }
+
+    .progress-track { height: 3px; background: var(--surface2); border-radius: 100px; margin-bottom: 1.25rem; overflow: hidden; }
+    .progress-fill  { height: 100%; background: var(--accent); border-radius: 100px; width: 0; transition: width 0.35s ease; }
+
+    .q-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 0.875rem; overflow: hidden; }
+    .q-top  { padding: 0.875rem 1rem 0.5rem; }
+    .q-type { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 0.3rem; }
+    .q-text { font-size: 0.92rem; font-weight: 500; }
+    .q-body { padding: 0 1rem 1rem; }
+
+    /* true/false */
+    .tf-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .tf-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--r-sm); color: var(--text); cursor: pointer;
+      font-size: 0.85rem; padding: 0.45rem 1.4rem; transition: all 0.18s;
+    }
+    .tf-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-light); }
+    .tf-btn:disabled { cursor: default; }
+    .tf-btn.ok   { background: rgba(34,197,94,.1);  border-color: var(--success); color: var(--success); }
+    .tf-btn.bad  { background: rgba(239,68,68,.1);  border-color: var(--error);   color: var(--error); }
+
+    /* multiple choice */
+    .mc-list { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.75rem; }
+    .mc-btn {
+      align-items: center; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--r-sm); color: var(--text); cursor: pointer;
+      display: flex; gap: 0.65rem; padding: 0.55rem 1rem;
+      font-size: 0.85rem; text-align: left; transition: all 0.18s; width: 100%;
+    }
+    .mc-btn:hover:not(:disabled) { border-color: var(--accent); }
+    .mc-btn:disabled { cursor: default; }
+    .mc-btn.ok  { background: rgba(34,197,94,.1);  border-color: var(--success); color: var(--success); }
+    .mc-btn.bad { background: rgba(239,68,68,.1);  border-color: var(--error);   color: var(--error); }
+
+    /* fill blank */
+    .fill-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .fill-row input { flex: 1; padding: 0.55rem 0.75rem; }
+    .check-btn {
+      background: var(--accent); border: none; border-radius: var(--r-sm);
+      color: #fff; cursor: pointer; font-size: 0.85rem; font-weight: 600; padding: 0.5rem 1rem;
+      white-space: nowrap;
+    }
+
+    /* short answer */
+    .short-wrap { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
+    textarea { min-height: 72px; resize: vertical; padding: 0.6rem 0.75rem; }
+
+    /* feedback */
+    .feedback {
+      border-left: 3px solid var(--border); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+      font-size: 0.8rem; margin-top: 0.75rem; padding: 0.65rem 1rem; background: var(--surface2);
+    }
+    .feedback.ok  { border-left-color: var(--success); }
+    .feedback.bad { border-left-color: var(--error); }
+    .fb-label { font-weight: 700; margin-bottom: 0.2rem; }
+    .feedback.ok  .fb-label { color: var(--success); }
+    .feedback.bad .fb-label { color: var(--error); }
+    .fb-explain { color: var(--muted); }
+
+    /* ── Learn more ───────────────────────────────────────────────────── */
+    .learn-wrap  { margin-bottom: 1.75rem; }
+    .learn-title { color: var(--muted); font-size: 0.7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 0.65rem; }
+    .learn-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+    .chip {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 100px; color: var(--text); font-size: 0.78rem;
+      padding: 0.25rem 0.85rem; transition: border-color 0.2s; cursor: default;
+    }
+    .chip:hover { border-color: var(--accent); }
+
+    hr.divider { border: none; border-top: 1px solid var(--border); margin: 2.75rem 0; }
+
+    .reset-btn {
+      display: block; margin: 2rem auto 0;
+      background: transparent; border: 1px solid var(--border); border-radius: var(--r-sm);
+      color: var(--muted); cursor: pointer; font-size: 0.85rem; padding: 0.55rem 1.5rem;
+      transition: all 0.2s;
+    }
+    .reset-btn:hover { border-color: var(--accent); color: var(--accent-light); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="logo">ModuleGen</div>
+  <p class="tagline">AI-powered learning modules, built for how your brain learns.</p>
+  <div class="form-card">
+    <input id="subtopic-input" type="text" placeholder="What subtopic do you want to learn? e.g. useState Hook in React" />
+    <select id="expertise-select">
+      <option value="beginner">Beginner — I'm just starting out</option>
+      <option value="intermediate">Intermediate — I know the basics</option>
+      <option value="advanced">Advanced — I want the deep stuff</option>
+    </select>
+    <select id="language-select">
+      <option value="English">English</option>
+      <option value="Spanish">Español (Spanish)</option>
+      <option value="French">Français (French)</option>
+      <option value="German">Deutsch (German)</option>
+      <option value="Hindi">हिंदी (Hindi)</option>
+      <option value="Portuguese">Português (Portuguese)</option>
+      <option value="Japanese">日本語 (Japanese)</option>
+      <option value="Chinese">中文 (Chinese)</option>
+      <option value="Arabic">العربية (Arabic)</option>
+      <option value="Korean">한국어 (Korean)</option>
+    </select>
+    <button class="btn" id="gen-btn" onclick="generate()">Generate Module →</button>
+  </div>
+</section>
+
+<!-- ── Loading ────────────────────────────────────────────────────────────── -->
+<section id="loading" class="hidden">
+  <div class="spinner"></div>
+  <p id="loading-status">Building your module…</p>
+  <ul class="steps">
+    <li id="s-gemini">⟳&nbsp; Generating outline &amp; quiz questions</li>
+    <li id="s-media" >⟳&nbsp; Fetching YouTube, articles &amp; creating memes</li>
+    <li id="s-veo"   >⟳&nbsp; Queueing AI video generation (Veo 3)</li>
+  </ul>
+</section>
+
+<!-- ── Course ─────────────────────────────────────────────────────────────── -->
+<section id="course" class="hidden"></section>
+
+<script>
+const API = '/api/v1';
+let es = null;
+
+// ── Util ──────────────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const show = id => $(id).classList.remove('hidden');
+const hide = id => $(id).classList.add('hidden');
+
+function step(id, state) {
+  const el = $(id); if (!el) return;
+  const icons = { active: '⟳', done: '✓', pending: '◦' };
+  el.textContent = (icons[state] || '⟳') + '\u00a0 ' + el.textContent.replace(/^[⟳✓◦]\u00a0\s*/, '');
+  el.className = state;
+}
+
+function fmtDuration(iso) {
+  if (!iso) return '';
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return iso;
+  const h = +m[1]||0, mn = +m[2]||0, s = +m[3]||0;
+  return h ? `${h}:${String(mn).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${mn}:${String(s).padStart(2,'0')}`;
+}
+
+function fmtViews(n) {
+  if (n >= 1e6) return `${(n/1e6).toFixed(1)}M views`;
+  if (n >= 1e3) return `${Math.round(n/1e3)}K views`;
+  return `${n} views`;
+}
+
+// Escape HTML for inline event handler attributes
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────────
+async function generate() {
+  const subtopic = $('subtopic-input').value.trim();
+  const expertise = $('expertise-select').value;
+  const language = $('language-select').value;
+  if (!subtopic) { $('subtopic-input').focus(); return; }
+
+  $('gen-btn').disabled = true;
+  hide('hero'); show('loading');
+  step('s-gemini','active');
+
+  try {
+    const res = await fetch(`${API}/module/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subtopic, expertise, language }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+
+    step('s-gemini','done');
+    step('s-media','done');
+    step('s-veo','active');
+    $('loading-status').textContent = 'Module ready! AI video is generating in the background…';
+
+    const module = await res.json();
+    renderModule(module);
+    openSSE(module.stream_url);
+
+    hide('loading'); show('course');
+  } catch (err) {
+    $('loading-status').textContent = `Error: ${err.message}`;
+    $('gen-btn').disabled = false;
+  }
+}
+
+// ── SSE ───────────────────────────────────────────────────────────────────────
+function openSSE(streamUrl) {
+  if (es) es.close();
+  es = new EventSource(streamUrl);
+
+  es.addEventListener('video_ready', e => {
+    const { chapter, video_url } = JSON.parse(e.data);
+    setVideo(chapter, 'ready', video_url);
+  });
+
+  es.addEventListener('video_failed', e => {
+    const { chapter } = JSON.parse(e.data);
+    setVideo(chapter, 'failed', null);
+  });
+
+  es.addEventListener('all_complete', () => { es.close(); es = null; });
+  es.onerror = () => { es.close(); es = null; };
+}
+
+function setVideo(chNum, status, url) {
+  const slot = document.getElementById(`vslot-${chNum}`);
+  if (!slot) return;
+  if (status === 'ready' && url) {
+    slot.innerHTML = `<video controls autoplay muted loop><source src="${url}" type="video/mp4"></video>`;
+  } else {
+    slot.innerHTML = `<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.82rem;">AI video unavailable — see YouTube below.</div>`;
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderModule(m) {
+  $('course').innerHTML = `
+    <div class="course-header">
+      <div class="meta-row">
+        <span class="badge hi">${m.expertise}</span>
+        <span class="badge">${m.language}</span>
+        <span class="badge">${m.subtopic}</span>
+      </div>
+      <h1 class="course-title">${m.title}</h1>
+      <p class="course-desc">${m.summary}</p>
+    </div>
+    <div class="concepts">
+      ${m.key_concepts.map(k => `<span class="pill">${k}</span>`).join('')}
+    </div>
+    <div class="grid" style="margin-top:1.25rem">
+      ${aiVideoCard(m.content.video)}
+      ${ytCard(m.content.youtube)}
+      ${memeCard(m.content.meme)}
+      ${articleCard(m.content.article)}
+      ${songCard(m.content.song)}
+    </div>
+    ${quizSection(m.quiz, 1)}
+    ${learnMore(m.learn_more)}
+    <button class="reset-btn" onclick="resetUI()">← Generate another module</button>
+  `;
+}
+
+// ── Content cards ─────────────────────────────────────────────────────────────
+
+function aiVideoCard(v) {
+  if (v.status === 'disabled') {
+    return '';   // hide the card entirely when Veo is turned off
+  }
+  let inner;
+  if (v.status === 'ready' && v.url) {
+    inner = `<video controls autoplay muted loop><source src="${v.url}" type="video/mp4"></video>`;
+  } else if (v.status === 'failed') {
+    inner = `<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.82rem;">AI video unavailable — see YouTube below.</div>`;
+  } else {
+    inner = `<div class="video-skeleton">
+      <span class="skeleton-icon">✦</span>
+      <span>Generating your clip…</span>
+    </div>`;
+  }
+  return `
+    <div class="card g-ai">
+      <div class="card-label">✦ AI-generated video</div>
+      <div id="vslot-1">${inner}</div>
+    </div>`;
+}
+
+function ytCard(yt) {
+  if (!yt) return `
+    <div class="card g-yt" style="display:flex;align-items:center;justify-content:center;padding:2rem;color:var(--muted);font-size:0.82rem;">
+      No YouTube video found
+    </div>`;
+  return `
+    <div class="card g-yt">
+      <div class="card-label">▶ Best YouTube match</div>
+      <iframe src="https://www.youtube.com/embed/${yt.video_id}?start=${yt.start_seconds || 0}"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen></iframe>
+      <div class="yt-meta">
+        <span class="yt-title">${yt.title}</span>
+        <div class="yt-stats">
+          <span>${yt.channel}</span>
+          <span>${fmtDuration(yt.duration)}</span>
+          <span>${fmtViews(yt.views)}</span>
+          <span class="score-pill">score ${(yt.score*100).toFixed(0)}%</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function memeCard(meme) {
+  if (!meme) return '';
+  return `
+    <div class="card g-meme">
+      <div class="card-label">😄 Meme</div>
+      <img class="meme-img" src="data:image/png;base64,${meme.image_b64}" alt="meme" loading="lazy" />
+    </div>`;
+}
+
+function articleCard(art) {
+  if (!art) return '';
+  return `
+    <div class="card g-art">
+      <div class="card-label">📄 Article · ${art.estimated_read_time}</div>
+      <div class="art-body">
+        <div class="art-title">${art.title}</div>
+        <div class="art-snippet">${art.summary}</div>
+        <div class="art-foot">
+          <span class="art-src">${art.source}</span>
+          <a class="read-btn" href="${art.url}" target="_blank" rel="noopener">Read →</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+function songCard(song) {
+  if (!song) return '';
+  return `
+    <div class="card g-song">
+      <div class="card-label">♪ Module song</div>
+      <div class="song-body">
+        <span class="song-icon">🎵</span>
+        <audio controls src="data:audio/mpeg;base64,${song.audio_b64}"></audio>
+      </div>
+      <div style="padding:0.75rem 1rem 1rem;color:var(--muted);font-size:0.8rem;white-space:pre-line;border-top:1px solid var(--border);line-height:1.7">${song.lyrics}</div>
+    </div>`;
+}
+
+// ── Quiz ──────────────────────────────────────────────────────────────────────
+
+function quizSection(qs, chNum) {
+  if (!qs?.length) return '';
+  return `
+    <div class="quiz-wrap">
+      <div class="quiz-head">Quiz · ${qs.length} questions</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="qprog-${chNum}"></div>
+      </div>
+      ${qs.map(q => question(q, chNum, qs.length)).join('')}
+    </div>`;
+}
+
+function question(q, chNum, total) {
+  let body;
+  const a = esc(q.answer), ex = esc(q.explanation);
+
+  if (q.type === 'true_false') {
+    body = `<div class="tf-row">
+      <button class="tf-btn" onclick="chkTF(this,'true','${a}','${ex}',${chNum},${total})">True</button>
+      <button class="tf-btn" onclick="chkTF(this,'false','${a}','${ex}',${chNum},${total})">False</button>
+    </div>`;
+
+  } else if (q.type === 'multiple_choice') {
+    body = `<div class="mc-list">${(q.options||[]).map(o => `
+      <button class="mc-btn" onclick="chkMC(this,'${esc(o)}','${a}','${ex}',${chNum},${total})">
+        <span>○</span>${o}
+      </button>`).join('')}</div>`;
+
+  } else if (q.type === 'fill_blank') {
+    body = `<div class="fill-row">
+      <input type="text" placeholder="Type your answer…"
+        onkeydown="if(event.key==='Enter')chkFill(this,'${a}','${ex}',${chNum},${total})"/>
+      <button class="check-btn" onclick="chkFill(this.previousElementSibling,'${a}','${ex}',${chNum},${total})">Check</button>
+    </div>`;
+
+  } else { // short_answer
+    body = `<div class="short-wrap">
+      <textarea placeholder="Write your answer…"></textarea>
+      <button class="check-btn" onclick="revealShort(this,'${a}','${ex}',${chNum},${total})">Reveal answer</button>
+    </div>`;
+  }
+
+  return `
+    <div class="q-card" data-ch="${chNum}" data-done="false">
+      <div class="q-top">
+        <div class="q-type">${q.type.replace('_',' ')}</div>
+        <div class="q-text">${q.question}</div>
+      </div>
+      <div class="q-body">${body}</div>
+    </div>`;
+}
+
+// ── Quiz handlers ─────────────────────────────────────────────────────────────
+
+function markDone(el, chNum, total) {
+  const card = el.closest('.q-card');
+  if (card.dataset.done === 'true') return false;
+  card.dataset.done = 'true';
+  const done = document.querySelectorAll(`.q-card[data-ch="${chNum}"][data-done="true"]`).length;
+  const bar = $(`qprog-${chNum}`);
+  if (bar) bar.style.width = `${(done/total)*100}%`;
+  return true;
+}
+
+function feedback(container, ok, explanation, correct) {
+  const div = document.createElement('div');
+  div.className = `feedback ${ok === null ? '' : ok ? 'ok' : 'bad'}`;
+  div.innerHTML = `
+    <div class="fb-label">${ok === null ? `Model answer: ${correct}` : ok ? '✓ Correct!' : `✗ Answer: ${correct}`}</div>
+    <div class="fb-explain">${explanation}</div>`;
+  container.appendChild(div);
+}
+
+function chkTF(btn, chosen, correct, ex, chNum, total) {
+  if (!markDone(btn, chNum, total)) return;
+  const btns = btn.closest('.tf-row').querySelectorAll('.tf-btn');
+  btns.forEach(b => {
+    b.disabled = true;
+    const v = b.textContent.trim().toLowerCase();
+    if (v === correct) b.classList.add('ok');
+    else if (v === chosen) b.classList.add('bad');
+  });
+  feedback(btn.closest('.q-body'), chosen === correct, ex, correct);
+}
+
+function chkMC(btn, chosen, correct, ex, chNum, total) {
+  if (!markDone(btn, chNum, total)) return;
+  btn.closest('.mc-list').querySelectorAll('.mc-btn').forEach(b => {
+    b.disabled = true;
+    const txt = b.textContent.trim().replace(/^[○●]\s*/,'');
+    if (txt === correct) b.classList.add('ok');
+    else if (txt === chosen) b.classList.add('bad');
+  });
+  feedback(btn.closest('.q-body'), chosen === correct, ex, correct);
+}
+
+function chkFill(input, correct, ex, chNum, total) {
+  if (!markDone(input, chNum, total)) return;
+  const chosen = input.value.trim();
+  const ok = chosen.toLowerCase() === correct.toLowerCase();
+  input.disabled = true;
+  const btn = input.nextElementSibling;
+  if (btn) btn.disabled = true;
+  input.style.borderColor = ok ? 'var(--success)' : 'var(--error)';
+  feedback(input.closest('.q-body'), ok, ex, correct);
+}
+
+function revealShort(btn, answer, ex, chNum, total) {
+  if (!markDone(btn, chNum, total)) return;
+  btn.disabled = true;
+  btn.previousElementSibling.disabled = true;
+  feedback(btn.closest('.q-body'), null, ex, answer);
+}
+
+// ── Learn more ────────────────────────────────────────────────────────────────
+
+function learnMore(items) {
+  if (!items?.length) return '';
+  return `
+    <div class="learn-wrap">
+      <div class="learn-title">Explore next</div>
+      <div class="learn-chips">
+        ${items.map(t => `<span class="chip">→ ${t}</span>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+
+function resetUI() {
+  if (es) { es.close(); es = null; }
+  $('course').innerHTML = '';
+  $('gen-btn').disabled = false;
+  hide('course'); show('hero');
+}
+
+// Enter key on input
+$('subtopic-input').addEventListener('keydown', e => { if (e.key === 'Enter') generate(); });
+</script>
+</body>
+</html>
