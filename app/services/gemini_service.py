@@ -13,7 +13,15 @@ from typing import Any
 from google import genai
 from google.genai import types
 
+from functools import lru_cache
+
 from app.config import get_settings
+
+
+@lru_cache(maxsize=1)
+def _get_client() -> genai.Client:
+    return genai.Client(api_key=get_settings().GEMINI_API_KEY)
+
 
 _QUIZ_GUIDANCE = {
     "beginner": (
@@ -143,8 +151,7 @@ Return ONLY valid JSON (no markdown fences):
 
 
 async def generate_module_outline(subtopic: str, expertise: str, language: str = "English") -> dict[str, Any]:
-    settings = get_settings()
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    client = _get_client()
 
     prompt = _MODULE_PROMPT.format(
         subtopic=subtopic,
@@ -169,8 +176,7 @@ async def generate_module_outline(subtopic: str, expertise: str, language: str =
 
 
 async def generate_course_outline(topic: str, expertise: str) -> dict[str, Any]:
-    settings = get_settings()
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    client = _get_client()
 
     prompt = _PROMPT_TEMPLATE.format(
         topic=topic,

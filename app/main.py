@@ -22,7 +22,7 @@ app.include_router(goal_extractor_router)
 
 # Serve generated videos
 
-#app.include_router(router, prefix="/api/v1")
+app.include_router(router, prefix="/api/v1")
 
 
 @app.on_event("startup")

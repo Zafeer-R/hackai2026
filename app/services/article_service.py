@@ -10,11 +10,19 @@ import asyncio
 from typing import Optional
 
 import httpx
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from google import genai
 from google.genai import types
 
+from functools import lru_cache
+
 from app.config import get_settings
+
+
+@lru_cache(maxsize=1)
+def _get_client() -> genai.Client:
+    return genai.Client(api_key=get_settings().GEMINI_API_KEY)
+
 
 _JINA_BASE = "https://r.jina.ai/"
 _JINA_MAX_CHARS = 4000   # enough context for a good summary; avoids token bloat
@@ -82,8 +90,7 @@ async def _fetch_jina(url: str) -> Optional[str]:
 
 
 async def _summarise(text: str, chapter_title: str, expertise: str) -> str:
-    settings = get_settings()
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    client = _get_client()
 
     prompt = (
         f"Summarise the article below for a {expertise} learner studying '{chapter_title}'.\n"

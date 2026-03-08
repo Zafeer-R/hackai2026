@@ -35,14 +35,16 @@ def _parse_json_content(content: Any) -> dict:
 
 def _call_gemini(goal: str) -> dict:
     s = get_settings()
+    max_mod = s.ROADMAP_MAX_MODULES
+    max_ch = s.ROADMAP_MAX_CHAPTERS_PER_MODULE
     system_prompt = (
         "You are a roadmap generation engine. Return valid JSON only.\n"
         "Rules:\n"
         "1) The topic is specific and niche. Produce an actionable roadmap.\n"
         '2) Output ONLY this shape: {"modules": [{"title": "...", "chapters": [{"title": "..."}]}]}.\n'
         "3) No keys outside modules/title/chapters.\n"
-        "4) Prefer <= 5 modules; each module must have 1-4 chapters.\n"
-        "5) If topic complexity needs it, you may use up to 7 modules.\n"
+        f"4) Generate EXACTLY {max_mod} modules — no more, no less.\n"
+        f"5) Each module must have EXACTLY {max_ch} chapters — no more, no less.\n"
         "6) No sub-chapters and no long explanations.\n"
     )
     user_prompt = json.dumps({
@@ -66,14 +68,15 @@ def _call_gemini(goal: str) -> dict:
 
 
 def _normalize(raw: dict) -> list[dict]:
+    s = get_settings()
     modules = []
-    for m in raw.get("modules", [])[:7]:
+    for m in raw.get("modules", [])[:s.ROADMAP_MAX_MODULES]:
         title = str(m.get("title", "")).strip()[:140] or "Untitled Module"
         chapters = [
             {"title": str(c.get("title", "")).strip()[:140]}
             for c in m.get("chapters", [])
             if str(c.get("title", "")).strip()
-        ][:4]
+        ][:s.ROADMAP_MAX_CHAPTERS_PER_MODULE]
         if not chapters:
             chapters = [{"title": f"Core concepts of {title}"}]
         modules.append({"title": title, "chapters": chapters})

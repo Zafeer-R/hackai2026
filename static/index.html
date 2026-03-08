@@ -81,6 +81,18 @@
         .bubble { max-width:90%; }
         .goal-grid { grid-template-columns:1fr; }
       }
+      .chapter-card { padding:14px 16px; border-radius:16px; border:1px solid rgba(217,209,195,.9); margin-bottom:0; }
+      .chapter-loading { background:rgba(236,230,217,.3); }
+      .chapter-failed { background:rgba(157,43,43,.06); border-color:rgba(157,43,43,.2); }
+      .chapter-ready { background:rgba(255,253,248,.8); }
+      .chapter-title { font-weight:600; margin-bottom:4px; }
+      @keyframes genPulse { 0%,100% { opacity:.45 } 50% { opacity:1 } }
+      .gen-pulse { display:inline-block; color:var(--green); font-size:.85rem; animation:genPulse 1.4s infinite; }
+      .concept-badge { padding:3px 10px; border-radius:999px; background:rgba(27,107,92,.1); border:1px solid rgba(27,107,92,.18); color:var(--green); font-size:.78rem; }
+      .resource-btn { display:inline-block; padding:7px 12px; border-radius:10px; font-size:.82rem; text-decoration:none; border:1px solid transparent; cursor:default; }
+      .yt-btn { background:rgba(220,50,50,.1); border-color:rgba(220,50,50,.2); color:#c0392b; cursor:pointer; }
+      .art-btn { background:rgba(31,59,115,.1); border-color:rgba(31,59,115,.2); color:var(--blue); cursor:pointer; }
+      .quiz-btn { background:rgba(139,91,19,.1); border-color:rgba(139,91,19,.2); color:var(--gold); }
     </style>
   </head>
   <body>
@@ -162,23 +174,121 @@
         );
       }
 
-      function RoadmapView({ goal, roadmap }) {
+      function ChapterCard({ chapter }) {
+        if (chapter.status === "pending" || chapter.status === "generating") {
+          return (
+            <div className="chapter-card chapter-loading">
+              <div className="chapter-title">{chapter.title}</div>
+              <div style={{ marginTop: 6 }}>
+                {chapter.status === "generating"
+                  ? <span className="gen-pulse">Generating content…</span>
+                  : <span style={{ color: "var(--muted)", fontSize: ".85rem" }}>Queued</span>}
+              </div>
+            </div>
+          );
+        }
+        if (chapter.status === "failed") {
+          return (
+            <div className="chapter-card chapter-failed">
+              <div className="chapter-title">{chapter.title}</div>
+              <div style={{ color: "var(--red)", fontSize: ".85rem", marginTop: 4 }}>Content generation failed</div>
+            </div>
+          );
+        }
+        const c = chapter.content;
+        return (
+          <div className="chapter-card chapter-ready">
+            <div className="chapter-title">{c.title}</div>
+            {c.summary && <p style={{ margin: "8px 0 10px", color: "var(--muted)", lineHeight: 1.6, fontSize: ".9rem" }}>{c.summary}</p>}
+            {c.key_concepts && c.key_concepts.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                {c.key_concepts.map((k, i) => <span key={i} className="concept-badge">{k}</span>)}
+              </div>
+            )}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+              {c.youtube && (
+                <a href={c.youtube.url} target="_blank" rel="noopener noreferrer" className="resource-btn yt-btn">
+                  ▶ {c.youtube.title ? c.youtube.title.slice(0, 42) + (c.youtube.title.length > 42 ? "…" : "") : "Watch Video"}
+                </a>
+              )}
+              {c.article && (
+                <a href={c.article.url} target="_blank" rel="noopener noreferrer" className="resource-btn art-btn">
+                  ✦ {c.article.title ? c.article.title.slice(0, 42) + (c.article.title.length > 42 ? "…" : "") : "Read Article"}
+                </a>
+              )}
+              {c.quiz && c.quiz.length > 0 && (
+                <span className="resource-btn quiz-btn">✎ {c.quiz.length} Quiz Questions</span>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      function CourseView({ goal, roadmap, userId }) {
+        const [courseModules, setCourseModules] = React.useState(() =>
+          (roadmap.modules || []).map(mod => ({
+            title: mod.title,
+            chapters: (mod.chapters || []).map(ch => ({ title: ch.title, status: "pending", content: null })),
+          }))
+        );
+        const [courseStatus, setCourseStatus] = React.useState("starting");
+        const esRef = React.useRef(null);
+
+        React.useEffect(() => {
+          fetch("/api/v1/course/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ goal: goal.goal, roadmap, user_id: userId, expertise: "beginner" }),
+          })
+            .then(r => r.json())
+            .then(({ course_id }) => {
+              setCourseStatus("generating");
+              const es = new EventSource(`/api/v1/course/${course_id}/stream`);
+              esRef.current = es;
+              es.addEventListener("chapter_ready", (e) => {
+                const { module_idx, chapter_idx, content } = JSON.parse(e.data);
+                setCourseModules(prev => {
+                  const next = prev.map(m => ({ ...m, chapters: [...m.chapters] }));
+                  next[module_idx].chapters[chapter_idx] = { ...next[module_idx].chapters[chapter_idx], status: "ready", content };
+                  return next;
+                });
+              });
+              es.addEventListener("chapter_failed", (e) => {
+                const { module_idx, chapter_idx } = JSON.parse(e.data);
+                setCourseModules(prev => {
+                  const next = prev.map(m => ({ ...m, chapters: [...m.chapters] }));
+                  next[module_idx].chapters[chapter_idx] = { ...next[module_idx].chapters[chapter_idx], status: "failed" };
+                  return next;
+                });
+              });
+              es.addEventListener("course_complete", () => { setCourseStatus("complete"); es.close(); });
+              es.onerror = () => { setCourseStatus("error"); es.close(); };
+            })
+            .catch(() => setCourseStatus("error"));
+          return () => { if (esRef.current) esRef.current.close(); };
+        }, []);
+
+        const total = courseModules.reduce((s, m) => s + m.chapters.length, 0);
+        const done = courseModules.reduce((s, m) => s + m.chapters.filter(c => c.status === "ready" || c.status === "failed").length, 0);
+
         return (
           <section className="panel goal">
-            <h2>{goal.goal}</h2>
-            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-              {(roadmap.modules || []).map((mod, i) => (
-                <div key={i} className="field wide">
-                  <div className="label">Module {i + 1}</div>
-                  <div className="value" style={{ fontWeight: 600, marginBottom: 6 }}>{mod.title}</div>
-                  <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", lineHeight: 1.8 }}>
-                    {(mod.chapters || []).map((ch, j) => (
-                      <li key={j}>{ch.title}</li>
-                    ))}
-                  </ul>
+            <h2 style={{ marginBottom: 4 }}>{goal.goal}</h2>
+            <p style={{ margin: "0 0 22px", color: "var(--muted)", fontSize: ".9rem" }}>
+              {courseStatus === "starting" && "Preparing course generation…"}
+              {courseStatus === "generating" && `Generating content… ${done} / ${total} chapters ready`}
+              {courseStatus === "complete" && `✓ All ${total} chapters ready`}
+              {courseStatus === "error" && "Course generation encountered an error"}
+            </p>
+            {courseModules.map((mod, i) => (
+              <div key={i} style={{ marginBottom: 28 }}>
+                <div className="label">Module {i + 1}</div>
+                <div style={{ fontWeight: 600, fontSize: "1.05rem", margin: "6px 0 12px" }}>{mod.title}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {mod.chapters.map((ch, j) => <ChapterCard key={j} chapter={ch} />)}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </section>
         );
       }
@@ -634,7 +744,7 @@
           <main className="app">
             <header>
               <span className="eyebrow">Goal Extraction Demo</span>
-              <h1>{result ? "Your Roadmap" : mode === "text" ? "Text Mode" : "Voice Mode"}</h1>
+              <h1>{result ? "Your Course" : mode === "text" ? "Text Mode" : "Voice Mode"}</h1>
               {!result ? (
                 <>
                   <div className="toggle">
@@ -646,7 +756,7 @@
               ) : null}
             </header>
             {result
-              ? <RoadmapView goal={result.goal} roadmap={result.roadmap} />
+              ? <CourseView goal={result.goal} roadmap={result.roadmap} userId={userId} />
               : mode === "text"
                 ? <TextMode onGoalComplete={setResult} userId={userId} />
                 : <VoiceMode onGoalComplete={setResult} userId={userId} />}

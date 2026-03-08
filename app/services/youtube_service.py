@@ -21,7 +21,15 @@ from googleapiclient.discovery import build
 from google import genai
 from google.genai import types
 
+from functools import lru_cache
+
 from app.config import get_settings
+
+
+@lru_cache(maxsize=1)
+def _get_client() -> genai.Client:
+    return genai.Client(api_key=get_settings().GEMINI_API_KEY)
+
 
 _RYD_BASE    = "https://returnyoutubedislikeapi.com/votes"
 _TS_PATTERN  = re.compile(r"(?:^|\n)\s*(\d{1,2}:\d{2}(?::\d{2})?)\s+(.+?)(?=\n|$)")
@@ -94,8 +102,7 @@ async def _start_from_transcript(
     # Every 4th entry, capped at 80 lines — enough context, minimal tokens
     lines = [f"[{int(e['start'])}s] {e['text']}" for e in transcript[::4][:80]]
 
-    settings = get_settings()
-    client   = genai.Client(api_key=settings.GEMINI_API_KEY)
+    client = _get_client()
 
     prompt = (
         f"Transcript of a YouTube video (every 4th caption shown):\n"

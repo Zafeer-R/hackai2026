@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     ELEVENLABS_API_KEY: str = ""
 
     # Feature flags
-    ENABLE_VEO: bool = True
+    ENABLE_VEO: bool = False
 
     # MongoDB
     MONGO_URI: str = ""
@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SEC: int = 15
     LLM_MAX_RETRIES: int = 0
     LOG_LEVEL: str = "DEBUG"
+
+    # Roadmap limits
+    ROADMAP_MAX_MODULES: int = 3
+    ROADMAP_MAX_CHAPTERS_PER_MODULE: int = 2
 
     # Goal extraction prompt (loaded from file)
     ROOT_DIR: Path = Path(__file__).resolve().parent.parent

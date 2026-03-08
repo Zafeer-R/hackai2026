@@ -94,6 +94,13 @@ class ModuleRequest(BaseModel):
     language: str = Field(default="English", max_length=50, examples=["English"])
 
 
+class CourseGenerateRequest(BaseModel):
+    goal: str
+    roadmap: dict
+    user_id: str = "default-user"
+    expertise: Literal["beginner", "intermediate", "advanced"] = "beginner"
+
+
 class Module(BaseModel):
     id: str
     subtopic: str

@@ -10,15 +10,24 @@ from typing import Optional
 from google import genai
 from google.genai import types
 
+from functools import lru_cache
+
 from app.config import get_settings
+
+
+@lru_cache(maxsize=1)
+def _get_client() -> genai.Client:
+    return genai.Client(
+        api_key=get_settings().GEMINI_API_KEY,
+        http_options={"api_version": "v1"},
+    )
 
 
 async def generate_meme(meme_prompt: str, chapter_title: str) -> Optional[str]:
     """
     Returns base64-encoded PNG, or None if generation fails.
     """
-    settings = get_settings()
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    client = _get_client()
 
     full_prompt = (
         f"A funny and educational meme image about '{chapter_title}'. "
