@@ -2,8 +2,8 @@ import logging
 
 from fastapi import FastAPI
 
-from app.api.routes import router as roadmap_router
-from app.core.config import get_settings
+from .api.routes import router as roadmap_router
+from .core.config import get_settings
 
 
 def create_app() -> FastAPI:

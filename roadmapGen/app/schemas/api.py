@@ -77,4 +77,19 @@ class StoredRoadmapResponse(BaseModel):
     updated_at: datetime = Field(alias="updatedAt")
 
 
+class TopicRecommendation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    topic: str
+    reason: str
+    priority: str
+
+
+class RecommendationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str
+    recommendations: list[TopicRecommendation]
+
+
 EditRoadmapRequest.model_rebuild()

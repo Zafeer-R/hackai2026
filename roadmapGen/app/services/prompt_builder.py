@@ -44,6 +44,36 @@ def build_edit_system_prompt() -> str:
     )
 
 
+def build_recommendation_system_prompt() -> str:
+    return (
+        "You are a personalized learning advisor. Return valid JSON only.\n"
+        "Rules:\n"
+        "1) Analyze the user's profile (expertise, ambitions, knowledge gaps) and their current learning roadmap.\n"
+        "2) Output ONLY this shape: {\"recommendations\": [{\"topic\": \"...\", \"reason\": \"...\", \"priority\": \"high|medium|low\"}]}.\n"
+        "3) Suggest 5-8 topics that fill knowledge gaps, align with ambitions, and complement the existing roadmap.\n"
+        "4) Each reason must be specific to the user's profile and roadmap context.\n"
+        "5) Priority must be exactly 'high', 'medium', or 'low'.\n"
+        "6) No keys outside recommendations/topic/reason/priority.\n"
+    )
+
+
+def build_recommendation_user_prompt(*, profile: dict | None, roadmap: dict) -> str:
+    envelope = {
+        "user_profile": profile or {},
+        "current_roadmap": roadmap,
+        "required_response_schema": {
+            "recommendations": [
+                {
+                    "topic": "string",
+                    "reason": "string",
+                    "priority": "high|medium|low",
+                }
+            ]
+        },
+    }
+    return json.dumps(envelope, indent=2)
+
+
 def build_edit_user_prompt(*, roadmap: dict, instruction: str) -> str:
     envelope = {
         "instruction": instruction,

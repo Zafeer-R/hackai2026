@@ -7,24 +7,28 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.providers.base import LLMProvider, LLMProviderError
-from app.repository.mongodb import RepositoryError
-from app.schemas.api import (
+from ..providers.base import LLMProvider, LLMProviderError
+from ..repository.mongodb import RepositoryError
+from ..schemas.api import (
     Chapter,
     EditRoadmapRequest,
     GenerateRoadmapRequest,
     GenerateRoadmapResponse,
     Module,
     GeneratedRoadmapPayload,
+    RecommendationResponse,
     StoredRoadmapResponse,
+    TopicRecommendation,
 )
-from app.services.prompt_builder import (
+from .prompt_builder import (
     build_edit_system_prompt,
     build_edit_user_prompt,
+    build_recommendation_system_prompt,
+    build_recommendation_user_prompt,
     build_system_prompt,
     build_user_prompt,
 )
-from app.services.validator import SemanticValidationError, validate_roadmap_semantics
+from .validator import SemanticValidationError, validate_roadmap_semantics
 
 logger = logging.getLogger(__name__)
 
@@ -289,3 +293,71 @@ class RoadmapService:
                         f"Edited roadmap changed untouched chapter '{original_chapter.title}'"
                     )
                 flat_index += 1
+
+
+class RecommendationService:
+    def __init__(self, *, settings: Any, provider: LLMProvider, repository: Any) -> None:
+        self.settings = settings
+        self.provider = provider
+        self.repository = repository
+
+    def get_recommendations(self, user_id: str) -> RecommendationResponse:
+        roadmap = self.repository.get_user_roadmap(user_id)
+        if not roadmap:
+            raise RoadmapNotFoundError(f"No roadmap found for userId '{user_id}'")
+
+        try:
+            profile = self.repository.get_user_profile(user_id)
+        except RepositoryError:
+            logger.warning("recommendations.profile_fetch_failed user_id=%s", user_id)
+            profile = None
+
+        system_prompt = build_recommendation_system_prompt()
+        user_prompt = build_recommendation_user_prompt(profile=profile, roadmap=roadmap)
+
+        last_error: Exception | None = None
+        max_attempts = self.settings.llm_max_retries + 1
+        for attempt in range(max_attempts):
+            try:
+                logger.debug(
+                    "recommendations.generate attempt=%s/%s user_id=%s",
+                    attempt + 1,
+                    max_attempts,
+                    user_id,
+                )
+                raw_payload = self.provider.generate_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                )
+                recommendations = [
+                    TopicRecommendation(
+                        topic=str(item.get("topic", "")).strip(),
+                        reason=str(item.get("reason", "")).strip(),
+                        priority=str(item.get("priority", "medium")).strip().lower(),
+                    )
+                    for item in raw_payload.get("recommendations", [])
+                    if item.get("topic") and item.get("reason")
+                ]
+                if not recommendations:
+                    raise GenerationError("Gemini returned empty recommendations list")
+                logger.info(
+                    "recommendations.success user_id=%s count=%s",
+                    user_id,
+                    len(recommendations),
+                )
+                return RecommendationResponse(user_id=user_id, recommendations=recommendations)
+            except RepositoryError:
+                raise
+            except (LLMProviderError, ValidationError) as exc:
+                last_error = exc
+                logger.warning(
+                    "recommendations.retry attempt=%s/%s reason=%s",
+                    attempt + 1,
+                    max_attempts,
+                    exc,
+                )
+                continue
+
+        raise GenerationError(
+            f"Failed to generate recommendations in {max_attempts} attempts: {last_error}"
+        )

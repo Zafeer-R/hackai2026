@@ -6,6 +6,7 @@ from app.backend.goal_extractor import router as goal_extractor_router
 
 from app.api.routes import router
 from app.config import get_settings
+from roadmapGen.app.api.routes import router as roadmap_router
 
 app = FastAPI(title="Goal Finder MVP")
 
@@ -19,6 +20,7 @@ app.add_middleware(
 
 app.mount("/media", StaticFiles(directory="generated_media"), name="media")
 app.include_router(goal_extractor_router)
+app.include_router(roadmap_router)
 
 # Serve generated videos
 

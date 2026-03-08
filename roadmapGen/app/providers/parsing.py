@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from app.providers.base import LLMProviderError
+from .base import LLMProviderError
 
 
 def parse_json_content(content: Any) -> dict:

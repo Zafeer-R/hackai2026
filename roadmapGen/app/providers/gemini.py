@@ -5,8 +5,8 @@ import time
 
 import httpx
 
-from app.providers.base import LLMProviderError
-from app.providers.parsing import parse_json_content
+from .base import LLMProviderError
+from .parsing import parse_json_content
 
 logger = logging.getLogger(__name__)
 

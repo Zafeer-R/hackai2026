@@ -7,10 +7,14 @@ API routes:
 from __future__ import annotations
 import asyncio
 import json
+import re
 import uuid
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from google import genai
+from google.genai import types
+from pymongo import MongoClient
 from sse_starlette.sse import EventSourceResponse
 
 import app.store as store
@@ -296,3 +300,65 @@ async def stream_course(course_id: str):
             store.remove_course_queue(course_id)
 
     return EventSourceResponse(_generator())
+
+
+# ── Topic Recommendations ────────────────────────────────────────────────────────
+
+def _fetch_roadmap_and_profile(user_id: str) -> tuple[dict | None, dict | None]:
+    s = get_settings()
+    client = MongoClient(s.MONGO_URI, tlsAllowInvalidCertificates=True, serverSelectionTimeoutMS=3000)
+    db = client[s.MONGO_DB]
+    roadmap = db[s.MONGO_COLLECTION].find_one({"_id": user_id})
+    profile = db[s.MONGO_USER_PROFILES_COLLECTION].find_one({"_id": user_id})
+    client.close()
+    return roadmap, profile
+
+
+_RECOMMENDATION_PROMPT = """\
+You are a personalized learning advisor. Analyze the user's profile and current roadmap, then suggest 5-8 topics.
+
+User profile: {profile}
+
+Current roadmap: {roadmap}
+
+Return ONLY valid JSON (no markdown fences):
+{{
+  "recommendations": [
+    {{
+      "topic": "string",
+      "reason": "string – specific to this user's gaps and goals",
+      "priority": "high | medium | low"
+    }}
+  ]
+}}
+"""
+
+
+@router.get("/roadmap/user/{user_id}/recommendations")
+async def get_recommendations(user_id: str) -> dict[str, Any]:
+    roadmap, profile = await asyncio.to_thread(_fetch_roadmap_and_profile, user_id)
+
+    if not roadmap:
+        raise HTTPException(status_code=404, detail=f"No roadmap found for user '{user_id}'")
+
+    prompt = _RECOMMENDATION_PROMPT.format(
+        profile=json.dumps(profile or {}, default=str),
+        roadmap=json.dumps(roadmap, default=str),
+    )
+
+    s = get_settings()
+    client = genai.Client(api_key=s.GEMINI_API_KEY)
+    response = await client.aio.models.generate_content(
+        model=s.MODEL_NAME,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.7,
+        ),
+    )
+
+    raw = re.sub(r"^```json\s*", "", response.text.strip())
+    raw = re.sub(r"\s*```$", "", raw).strip()
+    payload = json.loads(raw)
+
+    return {"user_id": user_id, "recommendations": payload.get("recommendations", [])}

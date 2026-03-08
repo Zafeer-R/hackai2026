@@ -3,6 +3,10 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 class Settings:
     def __init__(self, **overrides: object) -> None:
@@ -18,6 +22,7 @@ class Settings:
         self.mongo_uri: str = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
         self.mongo_db: str = os.environ.get("MONGO_DB", "hackai")
         self.mongo_collection: str = os.environ.get("MONGO_COLLECTION", "user_roadmaps")
+        self.user_profiles_collection: str = os.environ.get("USER_PROFILES_COLLECTION", "user_profiles")
         for key, value in overrides.items():
             normalized_key = key.lower()
             if hasattr(self, normalized_key):
