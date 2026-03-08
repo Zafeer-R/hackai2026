@@ -2,27 +2,27 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from app.backend.goal_extractor import router as goal_extractor_router
 
 from app.api.routes import router
 from app.config import get_settings
 
-app = FastAPI(
-    title="CourseGen API",
-    description="Dynamic course generation powered by Gemini, Veo, Imagen, YouTube, and ElevenLabs",
-    version="1.0.0",
-)
+app = FastAPI(title="Goal Finder MVP")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Serve generated videos
 app.mount("/media", StaticFiles(directory="generated_media"), name="media")
+app.include_router(goal_extractor_router)
 
-app.include_router(router, prefix="/api/v1")
+# Serve generated videos
+
+#app.include_router(router, prefix="/api/v1")
 
 
 @app.on_event("startup")
@@ -42,3 +42,7 @@ async def _startup_log():
 @app.get("/")
 async def serve_ui():
     return FileResponse("static/index.html")
+
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    return {"status": "ok"}

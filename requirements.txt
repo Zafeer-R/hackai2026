@@ -9,3 +9,4 @@ pydantic-settings>=2.4.0
 duckduckgo-search>=6.2.0
 sse-starlette>=2.1.0
 youtube-transcript-api>=0.6.0
+websocket

@@ -6,22 +6,24 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from google import genai
 from google.genai import types
 
-from backend.config import GEMINI_API_KEY, GOAL_EXTRACTION_PROMPT, TEXT_MODEL, VOICE_MODEL
+from app.config import get_settings
 
 router = APIRouter()
 
 
 def _build_text_client() -> genai.Client:
-    if not GEMINI_API_KEY:
+    key = get_settings().GEMINI_API_KEY
+    if not key:
         raise RuntimeError("GEMINI_API_KEY is not set.")
-    return genai.Client(api_key=GEMINI_API_KEY)
+    return genai.Client(api_key=key)
 
 
 def _build_voice_client() -> genai.Client:
-    if not GEMINI_API_KEY:
+    key = get_settings().GEMINI_API_KEY
+    if not key:
         raise RuntimeError("GEMINI_API_KEY is not set.")
     return genai.Client(
-        api_key=GEMINI_API_KEY,
+        api_key=key,
         http_options={"api_version": "v1alpha"},
     )
 
@@ -60,10 +62,10 @@ class GoalExtractionSession:
             )
         )
         response = await self.client.aio.models.generate_content(
-            model=TEXT_MODEL,
+            model=get_settings().MODEL_NAME,
             contents=self.history,
             config=types.GenerateContentConfig(
-                systemInstruction=GOAL_EXTRACTION_PROMPT,
+                systemInstruction=get_settings().GOAL_EXTRACTION_PROMPT,
             ),
         )
         response_text = (response.text or "").strip()
@@ -215,7 +217,7 @@ async def voice_goal_extractor(websocket: WebSocket) -> None:
         client = _build_voice_client()
         config = types.LiveConnectConfig(
             responseModalities=["AUDIO"],
-            systemInstruction=GOAL_EXTRACTION_PROMPT,
+            systemInstruction=get_settings().GOAL_EXTRACTION_PROMPT,
             speechConfig=types.SpeechConfig(
                 voiceConfig=types.VoiceConfig(
                     prebuiltVoiceConfig=types.PrebuiltVoiceConfig(voiceName="Aoede")
@@ -236,9 +238,9 @@ async def voice_goal_extractor(websocket: WebSocket) -> None:
     stop_event = asyncio.Event()
 
     try:
-        print(f"[voice] opening Gemini Live session with model={VOICE_MODEL}")
+        print(f"[voice] opening Gemini Live session with model={get_settings().VOICE_MODEL}")
         async with client.aio.live.connect(
-            model=VOICE_MODEL,
+            model=get_settings().VOICE_MODEL,
             config=config,
         ) as session:
             print("[voice] Gemini Live session connected")
