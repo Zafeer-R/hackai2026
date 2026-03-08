@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.dependencies import get_roadmap_service
 from app.repository.mongodb import RepositoryError
-from app.schemas.api import GenerateRoadmapRequest, GenerateRoadmapResponse, StoredRoadmapResponse
+from app.schemas.api import (
+    EditRoadmapRequest,
+    GenerateRoadmapRequest,
+    GenerateRoadmapResponse,
+    StoredRoadmapResponse,
+)
 from app.services.roadmap_service import GenerationError, RoadmapNotFoundError, RoadmapService
 
 router = APIRouter(prefix="/v1/roadmap", tags=["roadmap"])
@@ -43,6 +48,50 @@ def generate_roadmap(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Roadmap generation failed: {exc}",
+        ) from exc
+    except RepositoryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database unavailable: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {exc}",
+        ) from exc
+
+
+@router.post("/edit", response_model=GenerateRoadmapResponse)
+def edit_roadmap(
+    request_data: EditRoadmapRequest,
+    service: RoadmapService = Depends(get_roadmap_service),
+) -> GenerateRoadmapResponse:
+    t0 = time.perf_counter()
+    logger.info(
+        "edit_roadmap.start user_id=%s instruction=%s",
+        request_data.user_id,
+        request_data.instruction[:80],
+    )
+    try:
+        response = service.edit(request_data)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        logger.info(
+            "edit_roadmap.success user_id=%s elapsed_ms=%.1f module_count=%s",
+            request_data.user_id,
+            elapsed_ms,
+            len(response.modules),
+        )
+        return response
+    except GenerationError as exc:
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        logger.warning(
+            "edit_roadmap.generation_error elapsed_ms=%.1f error=%s",
+            elapsed_ms,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Roadmap edit failed: {exc}",
         ) from exc
     except RepositoryError as exc:
         raise HTTPException(

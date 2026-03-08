@@ -17,6 +17,19 @@ class GenerateRoadmapRequest(BaseModel):
         return " ".join(value.split()).strip()
 
 
+class EditRoadmapRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    user_id: str = Field(min_length=1, max_length=120, alias="userId")
+    roadmap: "GenerateRoadmapResponse"
+    instruction: str = Field(min_length=3, max_length=300)
+
+    @field_validator("instruction")
+    @classmethod
+    def normalize_instruction(cls, value: str) -> str:
+        return " ".join(value.split()).strip()
+
+
 class Chapter(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -62,3 +75,6 @@ class StoredRoadmapResponse(BaseModel):
     goal: str
     modules: list[Module]
     updated_at: datetime = Field(alias="updatedAt")
+
+
+EditRoadmapRequest.model_rebuild()

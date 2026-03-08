@@ -5,7 +5,7 @@ from functools import lru_cache
 
 
 class Settings:
-    def __init__(self) -> None:
+    def __init__(self, **overrides: object) -> None:
         self.app_name: str = "HackAI Roadmap API"
         self.model_name: str = os.environ.get("MODEL_NAME", "gemini-2.5-flash")
         self.llm_timeout_sec: float = float(os.environ.get("LLM_TIMEOUT_SEC", "15.0"))
@@ -18,6 +18,10 @@ class Settings:
         self.mongo_uri: str = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
         self.mongo_db: str = os.environ.get("MONGO_DB", "hackai")
         self.mongo_collection: str = os.environ.get("MONGO_COLLECTION", "user_roadmaps")
+        for key, value in overrides.items():
+            normalized_key = key.lower()
+            if hasattr(self, normalized_key):
+                setattr(self, normalized_key, value)
 
 
 @lru_cache

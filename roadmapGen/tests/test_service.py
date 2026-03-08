@@ -82,3 +82,190 @@ def test_get_by_user_not_found(valid_generated_payload: dict) -> None:
     service = RoadmapService(settings=Settings(), provider=provider, repository=InMemoryRepository())
     with pytest.raises(RoadmapNotFoundError):
         service.get_by_user("missing")
+
+
+def test_edit_updates_only_targeted_chapter_and_preserves_goal() -> None:
+    from app.schemas.api import EditRoadmapRequest
+
+    repository = InMemoryRepository()
+    repository.docs["user-1"] = {
+        "userId": "user-1",
+        "goal": "Kubernetes operators in Go",
+        "modules": [
+            {
+                "title": "Operator Foundations",
+                "chapters": [
+                    {"title": "Controller pattern basics"},
+                    {"title": "CRD design essentials"},
+                ],
+            },
+            {
+                "title": "Operator Delivery",
+                "chapters": [
+                    {"title": "Reconciliation logic in Go"},
+                    {"title": "Testing and deployment"},
+                ],
+            },
+        ],
+    }
+    edited_payload = {
+        "modules": [
+            {
+                "title": "Operator Foundations",
+                "chapters": [
+                    {"title": "Controller pattern basics"},
+                    {"title": "CRD design essentials"},
+                ],
+            },
+            {
+                "title": "Operator Delivery",
+                "chapters": [
+                    {"title": "Simplified reconciliation logic in Go"},
+                    {"title": "Testing and deployment"},
+                ],
+            },
+        ]
+    }
+    provider = FlakyProvider(edited_payload, fail_count=0)
+    service = RoadmapService(settings=Settings(), provider=provider, repository=repository)
+    request = EditRoadmapRequest.model_validate(
+        {
+            "userId": "user-1",
+            "instruction": "Make chapter 3 easier",
+            "roadmap": {
+                "modules": repository.docs["user-1"]["modules"],
+            },
+        }
+    )
+
+    response = service.edit(request)
+
+    assert response.modules[1].chapters[0].title == "Simplified reconciliation logic in Go"
+    assert response.modules[0].chapters[0].title == "Controller pattern basics"
+    assert repository.docs["user-1"]["goal"] == "Kubernetes operators in Go"
+
+
+def test_edit_retries_when_model_changes_untouched_chapter() -> None:
+    from app.schemas.api import EditRoadmapRequest
+
+    repository = InMemoryRepository()
+    repository.docs["user-1"] = {
+        "userId": "user-1",
+        "goal": "Kubernetes operators in Go",
+        "modules": [
+            {
+                "title": "Operator Foundations",
+                "chapters": [
+                    {"title": "Controller pattern basics"},
+                    {"title": "CRD design essentials"},
+                ],
+            },
+            {
+                "title": "Operator Delivery",
+                "chapters": [
+                    {"title": "Reconciliation logic in Go"},
+                    {"title": "Testing and deployment"},
+                ],
+            },
+        ],
+    }
+
+    class SequenceProvider:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def generate_json(self, *, system_prompt: str, user_prompt: str) -> dict:
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "modules": [
+                        {
+                            "title": "Operator Foundations",
+                            "chapters": [
+                                {"title": "Changed unrelated chapter"},
+                                {"title": "CRD design essentials"},
+                            ],
+                        },
+                        {
+                            "title": "Operator Delivery",
+                            "chapters": [
+                                {"title": "Simplified reconciliation logic in Go"},
+                                {"title": "Testing and deployment"},
+                            ],
+                        },
+                    ]
+                }
+            return {
+                "modules": [
+                    {
+                        "title": "Operator Foundations",
+                        "chapters": [
+                            {"title": "Controller pattern basics"},
+                            {"title": "CRD design essentials"},
+                        ],
+                    },
+                    {
+                        "title": "Operator Delivery",
+                        "chapters": [
+                            {"title": "Simplified reconciliation logic in Go"},
+                            {"title": "Testing and deployment"},
+                        ],
+                    },
+                ]
+            }
+
+    provider = SequenceProvider()
+    service = RoadmapService(
+        settings=Settings(LLM_MAX_RETRIES=1),
+        provider=provider,
+        repository=repository,
+    )
+    request = EditRoadmapRequest.model_validate(
+        {
+            "userId": "user-1",
+            "instruction": "Make chapter 3 easier",
+            "roadmap": {
+                "modules": repository.docs["user-1"]["modules"],
+            },
+        }
+    )
+
+    response = service.edit(request)
+
+    assert provider.calls == 2
+    assert response.modules[1].chapters[0].title == "Simplified reconciliation logic in Go"
+
+
+def test_edit_requires_chapter_reference() -> None:
+    from app.schemas.api import EditRoadmapRequest
+
+    repository = InMemoryRepository()
+    repository.docs["user-1"] = {
+        "userId": "user-1",
+        "goal": "Kubernetes operators in Go",
+        "modules": [
+            {
+                "title": "Operator Foundations",
+                "chapters": [
+                    {"title": "Controller pattern basics"},
+                ],
+            },
+        ],
+    }
+    provider = FlakyProvider(
+        {"modules": repository.docs["user-1"]["modules"]},
+        fail_count=0,
+    )
+    service = RoadmapService(settings=Settings(LLM_MAX_RETRIES=0), provider=provider, repository=repository)
+    request = EditRoadmapRequest.model_validate(
+        {
+            "userId": "user-1",
+            "instruction": "Make this easier",
+            "roadmap": {
+                "modules": repository.docs["user-1"]["modules"],
+            },
+        }
+    )
+
+    with pytest.raises(GenerationError):
+        service.edit(request)
