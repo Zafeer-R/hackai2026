@@ -1,16 +1,13 @@
 """
-1. DuckDuckGo  → find best article URL (no API key)
-2. Jina Reader → extract clean full text from URL (r.jina.ai, free, no key)
-3. Gemini      → summarise to 3 focused sentences, expertise-appropriate
+1. Tavily       → search + extract full article text (include_raw_content)
+2. Gemini       → summarise to 3 focused sentences, expertise-appropriate
 
-Falls back to the DuckDuckGo snippet if Jina or Gemini fail.
+Falls back to the Tavily snippet if raw_content or Gemini fail.
 """
 from __future__ import annotations
-import asyncio
 from typing import Optional
 
-import httpx
-from ddgs import DDGS
+from tavily import AsyncTavilyClient
 from google import genai
 from google.genai import types
 
@@ -24,29 +21,26 @@ def _get_client() -> genai.Client:
     return genai.Client(api_key=get_settings().GEMINI_API_KEY)
 
 
-_JINA_BASE = "https://r.jina.ai/"
-_JINA_MAX_CHARS = 4000   # enough context for a good summary; avoids token bloat
-_SKIP_DOMAINS = ("youtube.com", "reddit.com", "quora.com", "stackoverflow.com")
+_RAW_CONTENT_MAX_CHARS = 4000  # enough context for a good summary; avoids token bloat
+_SKIP_DOMAINS = ["youtube.com", "reddit.com", "quora.com", "stackoverflow.com"]
 
 
 async def find_article(query: str, expertise: str, chapter_title: str) -> Optional[dict]:
-    # 1. Search
-    result = await asyncio.to_thread(_search, query)
+    # 1. Tavily search + raw_content extraction in a single call
+    result = await _search(query)
     if not result:
         return None
 
-    url    = result.get("href", "")
+    url    = result.get("url", "")
     title  = result.get("title", "")
     source = url.split("/")[2].replace("www.", "") if url else ""
 
-    # 2. Jina Reader → full article text
-    raw_text = await _fetch_jina(url)
-
-    # 3. Gemini → 3-sentence summary, or fall back to DDG snippet
+    # 2. Gemini → 3-sentence summary, or fall back to Tavily snippet
+    raw_text = (result.get("raw_content") or "")[:_RAW_CONTENT_MAX_CHARS].strip()
     if raw_text:
         summary = await _summarise(raw_text, chapter_title, expertise)
     else:
-        summary = result.get("body", "")[:400]
+        summary = (result.get("content") or "")[:400]
 
     read_time = max(1, round(len(summary.split()) / 200))
 
@@ -61,31 +55,20 @@ async def find_article(query: str, expertise: str, chapter_title: str) -> Option
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def _search(query: str) -> Optional[dict]:
+async def _search(query: str) -> Optional[dict]:
+    """Search via Tavily and return the first result with raw_content."""
     try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=5))
-        for r in results:
-            if not any(s in r.get("href", "") for s in _SKIP_DOMAINS):
-                return r
+        client = AsyncTavilyClient(api_key=get_settings().TAVILY_API_KEY)
+        response = await client.search(
+            query=query,
+            max_results=5,
+            include_raw_content=True,
+            exclude_domains=_SKIP_DOMAINS,
+        )
+        results = response.get("results", [])
         return results[0] if results else None
     except Exception as e:
-        print(f"[Article] DDG search failed: {e}")
-        return None
-
-
-async def _fetch_jina(url: str) -> Optional[str]:
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.get(
-                f"{_JINA_BASE}{url}",
-                headers={"Accept": "text/plain"},
-                follow_redirects=True,
-            )
-            r.raise_for_status()
-            return r.text[:_JINA_MAX_CHARS].strip()
-    except Exception as e:
-        print(f"[Jina] Failed for {url}: {e}")
+        print(f"[Article] Tavily search failed: {e}")
         return None
 
 

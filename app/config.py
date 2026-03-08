@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # YouTube
     YOUTUBE_API_KEY: str
 
+    # Tavily (article search)
+    TAVILY_API_KEY: str = ""
+
     # ElevenLabs
     ELEVENLABS_API_KEY: str = ""
 

@@ -333,6 +333,7 @@ Returns the full module content synchronously (except Veo video). Subscribe to `
 |---|---|---|
 | `GEMINI_API_KEY` | — | Required. Google AI Studio key |
 | `YOUTUBE_API_KEY` | — | Required. YouTube Data API v3 key |
+| `TAVILY_API_KEY` | `""` | Optional. Tavily search API key for article enrichment |
 | `ELEVENLABS_API_KEY` | `""` | Optional. Disables song generation if unset |
 | `ENABLE_VEO` | `false` | Enable Veo video generation (slow) |
 | `ROADMAP_MAX_MODULES` | `3` | Max modules per roadmap |

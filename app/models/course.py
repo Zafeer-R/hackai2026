@@ -38,7 +38,7 @@ class Article(BaseModel):
     title: str
     url: str
     source: str
-    summary: str                    # 3-sentence Gemini summary via Jina Reader
+    summary: str                    # 3-sentence Gemini summary via Tavily
     estimated_read_time: str
 
 
