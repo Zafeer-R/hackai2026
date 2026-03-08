@@ -143,11 +143,13 @@ async def stream_module(module_id: str):
     if not store.get_course(module_id):
         raise HTTPException(status_code=404, detail="Module not found")
 
+    _SSE_HEADERS = {"X-Accel-Buffering": "no"}
+
     queue = store.get_queue(module_id)
     if not queue:
         async def _empty():
             yield {"event": "all_complete", "data": json.dumps({"course_id": module_id})}
-        return EventSourceResponse(_empty())
+        return EventSourceResponse(_empty(), headers=_SSE_HEADERS)
 
     async def _generator() -> AsyncGenerator:
         try:
@@ -166,7 +168,7 @@ async def stream_module(module_id: str):
         except asyncio.CancelledError:
             store.remove_queue(module_id)
 
-    return EventSourceResponse(_generator())
+    return EventSourceResponse(_generator(), headers=_SSE_HEADERS)
 
 
 # ── Course generation from roadmap ──────────────────────────────────────────────
@@ -278,11 +280,13 @@ async def stream_course(course_id: str):
     if not store.get_roadmap_course(course_id):
         raise HTTPException(status_code=404, detail="Course not found")
 
+    _SSE_HEADERS = {"X-Accel-Buffering": "no"}
+
     queue = store.get_course_queue(course_id)
     if not queue:
         async def _empty():
             yield {"event": "course_complete", "data": json.dumps({"course_id": course_id})}
-        return EventSourceResponse(_empty())
+        return EventSourceResponse(_empty(), headers=_SSE_HEADERS)
 
     async def _generator() -> AsyncGenerator:
         try:
@@ -299,7 +303,7 @@ async def stream_course(course_id: str):
         except asyncio.CancelledError:
             store.remove_course_queue(course_id)
 
-    return EventSourceResponse(_generator())
+    return EventSourceResponse(_generator(), headers=_SSE_HEADERS)
 
 
 # ── Topic Recommendations ────────────────────────────────────────────────────────
