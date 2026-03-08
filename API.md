@@ -1,242 +1,463 @@
-# CourseGen API — Reference
+# Frontend Integration Guide
 
-Base URL: `http://localhost:8000/api/v1`
+Base URL: `http://localhost:8000`
 
 ---
 
-## Endpoints
+## Overview
 
-### 1. Generate Course
+The full user flow has three stages:
 
-**`POST /course/generate`**
+```
+1. Goal Extraction (WebSocket)
+        ↓
+   goal_complete → { goal, roadmap }
+        ↓
+2. Course Generation (POST + SSE)
+        ↓
+   chapter_ready events → fill UI progressively
+        ↓
+3. Done — all chapters loaded
+```
 
-Generates a full course. All content except Veo videos is returned synchronously.
-Videos generate in the background — subscribe to the SSE stream for updates.
+---
 
-#### Request
+## Stage 1 — Goal Extraction (WebSocket)
 
+Two modes are available. Both return the same `goal_complete` payload.
+
+### Text Mode
+
+**`WS ws://localhost:8000/ws/text?user_id={userId}`**
+
+1. Connect.
+2. Send one JSON message with the user's learning intent.
+3. Receive `goal_complete` — the connection closes after this.
+
+**Send:**
+```json
+{ "text": "I want to learn how LLMs work from scratch" }
+```
+
+**Receive — `goal_complete`:**
 ```json
 {
-  "topic": "React Hooks",
+  "type": "goal_complete",
+  "goal": { "goal": "Understand how large language models work from scratch" },
+  "roadmap": {
+    "modules": [
+      {
+        "title": "Foundations of Neural Networks",
+        "chapters": [
+          { "title": "Perceptrons and Activation Functions" },
+          { "title": "Backpropagation Explained" }
+        ]
+      },
+      {
+        "title": "Transformer Architecture",
+        "chapters": [
+          { "title": "Attention Mechanisms" },
+          { "title": "Encoder-Decoder Structure" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Error message (non-fatal):**
+```json
+{ "type": "message", "text": "Something went wrong: ..." }
+```
+
+**JavaScript example:**
+```js
+const ws = new WebSocket(`ws://localhost:8000/ws/text?user_id=${userId}`);
+
+ws.onopen = () => ws.send(JSON.stringify({ text: userInput }));
+
+ws.onmessage = (event) => {
+  const payload = JSON.parse(event.data);
+  if (payload.type === "goal_complete") {
+    const { goal, roadmap } = payload;
+    // proceed to Stage 2
+  }
+};
+```
+
+---
+
+### Voice Mode
+
+**`WS ws://localhost:8000/ws/voice?user_id={userId}`**
+
+Streams raw PCM16 audio to Gemini Live. The conversation continues until Gemini extracts a goal, then sends `goal_complete` and closes.
+
+| Detail | Value |
+|---|---|
+| Audio format | PCM 16-bit, little-endian |
+| Sample rate | 16 000 Hz |
+| Channels | Mono |
+| Chunk interval | ~250 ms |
+
+**Send (binary):** raw PCM16 audio chunks as `ArrayBuffer`.
+
+**Send (text, end of turn):**
+```json
+{ "type": "end_audio" }
+```
+
+**Receive (binary):** Gemini's PCM16 audio response — play it back.
+
+**Receive (text):**
+```json
+{ "type": "goal_complete", "goal": { "goal": "..." }, "roadmap": { ... } }
+```
+
+```json
+{ "type": "message", "text": "Gemini status text / error" }
+```
+
+**Minimal JavaScript skeleton:**
+```js
+const ws = new WebSocket(`ws://localhost:8000/ws/voice?user_id=${userId}`);
+ws.binaryType = "arraybuffer";
+
+ws.onopen = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  // capture mic → downsample to PCM16 @ 16kHz → ws.send(pcmBuffer)
+};
+
+ws.onmessage = async (event) => {
+  if (event.data instanceof ArrayBuffer) {
+    // play PCM16 audio from Gemini
+    return;
+  }
+  const payload = JSON.parse(event.data);
+  if (payload.type === "goal_complete") {
+    const { goal, roadmap } = payload;
+    // proceed to Stage 2
+  }
+};
+
+// When user finishes speaking:
+ws.send(JSON.stringify({ type: "end_audio" }));
+```
+
+---
+
+## Stage 2 — Course Generation
+
+### 2a. Start generation
+
+**`POST http://localhost:8000/api/v1/course/generate`**
+
+Call this immediately after receiving `goal_complete`. Returns a `course_id` — do **not** wait for content; it streams in Stage 2b.
+
+**Request body:**
+```json
+{
+  "goal": "Understand how large language models work from scratch",
+  "roadmap": { "modules": [ ... ] },
+  "user_id": "alice",
   "expertise": "beginner"
 }
 ```
 
-| Field | Type | Required | Values |
+| Field | Type | Required | Notes |
 |---|---|---|---|
-| `topic` | string | Yes | 2–200 chars |
-| `expertise` | string | Yes | `beginner` \| `intermediate` \| `advanced` |
+| `goal` | string | Yes | The `goal.goal` string from `goal_complete` |
+| `roadmap` | object | Yes | The full `roadmap` object from `goal_complete` |
+| `user_id` | string | No | Defaults to `"default-user"` |
+| `expertise` | string | No | `beginner` \| `intermediate` \| `advanced`. Default: `beginner` |
 
-#### Response — `201 Created`
+**Response — `202 Accepted`:**
+```json
+{ "course_id": "c9a1b2d3-..." }
+```
+
+---
+
+### 2b. Stream chapter progress (SSE)
+
+**`GET http://localhost:8000/api/v1/course/{course_id}/stream`**
+
+Connect immediately after getting `course_id`. Chapters arrive as they complete (up to 5 in parallel).
+
+**JavaScript:**
+```js
+const es = new EventSource(`http://localhost:8000/api/v1/course/${courseId}/stream`);
+
+es.addEventListener("chapter_ready", (e) => {
+  const { module_idx, chapter_idx, content } = JSON.parse(e.data);
+  // render chapter card at modules[module_idx].chapters[chapter_idx]
+});
+
+es.addEventListener("chapter_failed", (e) => {
+  const { module_idx, chapter_idx, error } = JSON.parse(e.data);
+  // show error state for that chapter
+});
+
+es.addEventListener("course_complete", () => {
+  es.close();
+  // all done
+});
+```
+
+#### Events
+
+| Event | Data shape | When |
+|---|---|---|
+| `chapter_ready` | `{ module_idx, chapter_idx, content }` | One chapter finished |
+| `chapter_failed` | `{ module_idx, chapter_idx, error }` | One chapter failed (others continue) |
+| `course_complete` | `{ course_id }` | All chapters finished |
+| `ping` | `{}` | Keep-alive every 120 s |
+
+#### `chapter_ready` — `content` shape
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "title": "Understanding React Hooks",
-  "topic": "React Hooks",
-  "expertise": "beginner",
-  "description": "A concise introduction to React Hooks...",
-  "estimated_time": "45 min",
-  "stream_url": "/api/v1/course/550e8400.../stream",
-  "chapters": [
+  "title": "Attention Mechanisms",
+  "summary": "Attention lets the model focus on relevant parts of the input...",
+  "key_concepts": ["query", "key", "value", "softmax", "context vector"],
+  "youtube": {
+    "video_id": "iDulhoQ2pro",
+    "url": "https://www.youtube.com/watch?v=iDulhoQ2pro&t=42",
+    "title": "Attention in Transformers, Visually Explained",
+    "channel": "3Blue1Brown",
+    "duration": "PT26M39S",
+    "thumbnail": "https://i.ytimg.com/vi/iDulhoQ2pro/hqdefault.jpg",
+    "views": 3200000,
+    "likes": 89000,
+    "dislikes": 420,
+    "score": 0.921,
+    "start_seconds": 42
+  },
+  "article": {
+    "title": "The Illustrated Transformer",
+    "url": "https://jalammar.github.io/illustrated-transformer/",
+    "source": "jalammar.github.io",
+    "summary": "Jay Alammar's visual walkthrough of the Transformer architecture...",
+    "estimated_read_time": "15 min"
+  },
+  "meme": {
+    "image_b64": "<base64 PNG>",
+    "prompt_used": "A meme about attention weights in transformers"
+  },
+  "song": {
+    "audio_b64": "<base64 MP3>",
+    "lyrics": "Query, key, and value — that's the attention game...",
+    "duration_seconds": 12.4
+  },
+  "quiz": [
     {
-      "number": 1,
-      "title": "What Are Hooks?",
-      "summary": "Hooks let you use state and lifecycle features in functional components...",
-      "key_concepts": ["state", "functional component", "side effects"],
-      "content": {
-        "video": {
-          "status": "generating",
-          "url": null,
-          "job_id": null
-        },
-        "youtube": {
-          "video_id": "dpw9EHDh2bM",
-          "url": "https://www.youtube.com/watch?v=dpw9EHDh2bM",
-          "title": "React Hooks Explained",
-          "channel": "Fireship",
-          "duration": "PT8M42S",
-          "thumbnail": "https://i.ytimg.com/vi/dpw9EHDh2bM/hqdefault.jpg",
-          "views": 1200000,
-          "likes": 42000,
-          "dislikes": 310,
-          "score": 0.8741
-        },
-        "meme": {
-          "image_b64": "<base64-encoded PNG>",
-          "prompt_used": "A funny meme about learning React Hooks..."
-        },
-        "article": {
-          "title": "A Complete Guide to useEffect",
-          "url": "https://overreacted.io/a-complete-guide-to-useeffect/",
-          "source": "overreacted.io",
-          "snippet": "When I started learning Hooks...",
-          "estimated_read_time": "12 min"
-        },
-        "song": {
-          "audio_b64": "<base64-encoded MP3>",
-          "prompt_used": "An upbeat jingle about React useState hook...",
-          "duration_seconds": 8.0
-        }
-      },
-      "quiz": [
-        {
-          "id": 1,
-          "type": "true_false",
-          "question": "Hooks can only be used inside functional components.",
-          "options": null,
-          "answer": "true",
-          "explanation": "Hooks are designed exclusively for functional components..."
-        },
-        {
-          "id": 2,
-          "type": "multiple_choice",
-          "question": "What does useState return?",
-          "options": ["A single value", "A callback", "An array of [value, setter]", "An object"],
-          "answer": "An array of [value, setter]",
-          "explanation": "useState returns a tuple: the current state and a function to update it."
-        },
-        {
-          "id": 3,
-          "type": "fill_blank",
-          "question": "const [count, ___] = useState(0)",
-          "options": null,
-          "answer": "setCount",
-          "explanation": "The setter is conventionally named set + StateName."
-        }
-      ],
-      "learn_more": [
-        "React useReducer hook",
-        "React Context API",
-        "Custom hooks"
-      ]
+      "id": 1,
+      "type": "true_false",
+      "question": "Attention allows the model to weigh the importance of different tokens.",
+      "options": null,
+      "answer": "true",
+      "explanation": "Attention scores determine how much each token contributes to the output."
+    },
+    {
+      "id": 2,
+      "type": "multiple_choice",
+      "question": "What is the role of the Query vector in attention?",
+      "options": ["Stores values", "Represents what we're looking for", "Normalises scores", "Encodes position"],
+      "answer": "Represents what we're looking for",
+      "explanation": "The Query is compared against Keys to compute attention weights."
     }
-  ]
+  ],
+  "learn_more": ["Multi-head attention", "Positional encoding", "Scaled dot-product attention"]
+}
+```
+
+Fields that may be `null` if the service failed: `youtube`, `article`, `meme`, `song`.
+
+---
+
+## Complete Flow Example
+
+```js
+async function startCourse(userId, userInput) {
+  // 1. Goal extraction
+  const { goal, roadmap } = await extractGoalViaWebSocket(userId, userInput);
+
+  // 2. Start course generation
+  const res = await fetch("http://localhost:8000/api/v1/course/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      goal: goal.goal,
+      roadmap,
+      user_id: userId,
+      expertise: "beginner",
+    }),
+  });
+  const { course_id } = await res.json();
+
+  // 3. Stream progress
+  const es = new EventSource(`http://localhost:8000/api/v1/course/${course_id}/stream`);
+
+  es.addEventListener("chapter_ready", (e) => {
+    const { module_idx, chapter_idx, content } = JSON.parse(e.data);
+    updateChapterCard(module_idx, chapter_idx, content);
+  });
+
+  es.addEventListener("course_complete", () => es.close());
 }
 ```
 
 ---
 
-### 2. Get Course State
+## Standalone Module Generation
 
-**`GET /course/{course_id}`**
+If you want to generate content for a single topic without the roadmap flow:
 
-Returns the current state of the course, including video URLs as they become available.
-Poll this endpoint, or use the SSE stream instead.
+**`POST http://localhost:8000/api/v1/module/generate`**
 
-#### Response — `200 OK`
+```json
+{
+  "subtopic": "Attention Mechanisms",
+  "expertise": "beginner",
+  "language": "English"
+}
+```
 
-Same schema as POST response. Check `chapters[n].content.video.status`:
-
-| Status | Meaning |
-|---|---|
-| `"generating"` | Veo is still running |
-| `"ready"` | `video.url` is populated and playable |
-| `"failed"` | Veo failed; fall back to the `youtube` field |
-
-#### Error
-
-`404 Not Found` — course ID not found in store.
+Returns the full module content synchronously (except Veo video). Subscribe to `GET /api/v1/module/{module_id}/stream` for the video event.
 
 ---
 
-### 3. SSE Video Stream
+## Environment Variables
 
-**`GET /course/{course_id}/stream`**
+| Variable | Default | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | — | Required. Google AI Studio key |
+| `YOUTUBE_API_KEY` | — | Required. YouTube Data API v3 key |
+| `ELEVENLABS_API_KEY` | `""` | Optional. Disables song generation if unset |
+| `ENABLE_VEO` | `false` | Enable Veo video generation (slow) |
+| `ROADMAP_MAX_MODULES` | `3` | Max modules per roadmap |
+| `ROADMAP_MAX_CHAPTERS_PER_MODULE` | `2` | Max chapters per module |
+| `MONGO_URI` | `""` | Optional. Persist roadmaps to MongoDB Atlas |
 
-Server-Sent Events stream. Connect immediately after POST /generate.
-The server pushes events as Veo finishes each chapter's video.
+---
 
-#### Client (browser)
+## MongoDB Integration
+
+When `MONGO_URI` is set, the backend persists data to MongoDB Atlas. Here's how to query that data directly from a frontend or backend service.
+
+### Collections
+
+| Collection | Stores |
+|---|---|
+| `roadmaps` | Goal + roadmap per user, indexed by `user_id` |
+| `courses` | Generated course chapters, indexed by `course_id` |
+
+### Fetching a User's Roadmap
 
 ```js
-const source = new EventSource(`/api/v1/course/${courseId}/stream`)
+// Node.js (MongoDB driver)
+import { MongoClient } from "mongodb";
 
-source.addEventListener('video_ready', (e) => {
-  const { chapter, video_url } = JSON.parse(e.data)
-  // update UI for chapter `chapter` with video_url
-})
+const client = new MongoClient(process.env.MONGO_URI);
+await client.connect();
+const db = client.db("hackai");
 
-source.addEventListener('video_failed', (e) => {
-  const { chapter } = JSON.parse(e.data)
-  // fall back to YouTube for that chapter
-})
-
-source.addEventListener('all_complete', (e) => {
-  source.close()
-})
-
-// Keep-alive pings arrive as 'ping' events — ignore them
+// Get the latest roadmap for a user
+const roadmap = await db.collection("roadmaps").findOne(
+  { user_id: "alice" },
+  { sort: { created_at: -1 } }
+);
+// roadmap.goal  → { goal: "..." }
+// roadmap.roadmap → { modules: [...] }
 ```
 
-#### Events
+### Fetching a Course by ID
 
-| Event name | Data shape | When |
-|---|---|---|
-| `video_ready` | `{ "chapter": 2, "video_url": "/media/videos/..." }` | One Veo clip finished |
-| `video_failed` | `{ "chapter": 2 }` | Veo failed for a chapter |
-| `all_complete` | `{ "course_id": "..." }` | All chapters done (success or fail) |
-| `ping` | `{}` | Keep-alive every 120 s of silence |
-
-Stream closes server-side after `all_complete`. If the client disconnects, the queue is cleaned up automatically.
-
----
-
-## Video URL
-
-Generated Veo videos are served from:
-```
-GET /media/videos/{course_id}/{chapter_number}.mp4
-```
-e.g. `/media/videos/550e8400.../1.mp4`
-
----
-
-## AI Services & Keys
-
-| Service | Key | Used for |
-|---|---|---|
-| Google Gemini (`gemini-2.0-flash`) | `GEMINI_API_KEY` | Course outline, quiz, search queries |
-| Google Imagen 3 (`imagen-3.0-generate-002`) | `GEMINI_API_KEY` | Meme image per chapter |
-| Google Veo 2 (`veo-2.0-generate-001`) | `GEMINI_API_KEY` | 8–10 s explainer video per chapter |
-| YouTube Data API v3 | `YOUTUBE_API_KEY` | Best supplementary video by score |
-| DuckDuckGo Search | none | Web article per chapter |
-| ElevenLabs Sound Generation | `ELEVENLABS_API_KEY` | Educational jingle per chapter |
-| Return YouTube Dislike | none | Estimated dislike counts for scoring |
-
----
-
-## YouTube Video Scoring
-
-Candidates: top 10 YouTube results for `youtube_search_query`, filtered to `medium` duration (4–20 min).
-
-```
-score = like_ratio × 0.6 + normalised_views × 0.4
-
-like_ratio       = likes / (likes + dislikes)   — from returnyoutubedislike.com
-normalised_views = log10(views + 1) / 8         — ~0–1 for up to 100 M views
+```js
+const course = await db.collection("courses").findOne({ course_id: "c9a1b2d3-..." });
+// course.modules → array of modules with completed chapters
 ```
 
----
+### Fetching All Chapters for a Course
 
-## Error Responses
+```js
+// Each chapter is stored as a sub-document inside modules
+const course = await db.collection("courses").findOne(
+  { course_id: courseId },
+  { projection: { "modules.chapters": 1 } }
+);
 
-| HTTP | Meaning |
-|---|---|
-| `404` | Course ID not found |
-| `422` | Invalid request body (Pydantic validation error) |
-| `500` | Unexpected server error |
+for (const mod of course.modules) {
+  for (const chapter of mod.chapters) {
+    console.log(chapter.title, chapter.content);
+  }
+}
+```
+
+### Python (PyMongo)
+
+```python
+from pymongo import MongoClient
+import os
+
+client = MongoClient(os.environ["MONGO_URI"])
+db = client["hackai"]
+
+# Get roadmap
+roadmap = db["roadmaps"].find_one({"user_id": "alice"}, sort=[("created_at", -1)])
+
+# Get course
+course = db["courses"].find_one({"course_id": course_id})
+```
+
+### Document Shapes
+
+**`roadmaps` document:**
+```json
+{
+  "_id": "...",
+  "user_id": "alice",
+  "goal": { "goal": "Understand how LLMs work" },
+  "roadmap": { "modules": [ ... ] },
+  "created_at": "2026-03-08T10:00:00Z"
+}
+```
+
+**`courses` document:**
+```json
+{
+  "_id": "...",
+  "course_id": "c9a1b2d3-...",
+  "user_id": "alice",
+  "goal": "Understand how LLMs work",
+  "expertise": "beginner",
+  "status": "complete",
+  "modules": [
+    {
+      "title": "Foundations of Neural Networks",
+      "chapters": [
+        {
+          "title": "Attention Mechanisms",
+          "content": { ... }
+        }
+      ]
+    }
+  ],
+  "created_at": "2026-03-08T10:00:00Z"
+}
+```
+
+> **Note:** If `MONGO_URI` is not set, no data is persisted — all state lives in memory for the lifetime of the server process.
 
 ---
 
 ## Running Locally
 
 ```bash
-cp .env.example .env
-# fill in your keys
-
+cp .env.example .env   # fill in your keys
 pip install -r requirements.txt
 uvicorn app.main:app --reload
+# open http://localhost:8000
 ```
 
-Interactive docs: `http://localhost:8000/docs`
+Interactive API docs: `http://localhost:8000/docs`
