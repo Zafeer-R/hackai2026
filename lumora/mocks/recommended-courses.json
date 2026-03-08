@@ -1,0 +1,39 @@
+{
+  "courses": [
+    {
+      "title": "Convolutional Neural Networks",
+      "description": "Master image recognition, feature extraction, and CNN architectures like ResNet and VGG for computer vision tasks.",
+      "estimated_minutes": 120,
+      "accent_color": "cyan",
+      "topic": "Convolutional Neural Networks for Computer Vision"
+    },
+    {
+      "title": "Recurrent Neural Networks & LSTMs",
+      "description": "Learn sequence modeling, time series prediction, and text generation using RNNs, LSTMs, and GRUs.",
+      "estimated_minutes": 100,
+      "accent_color": "blue",
+      "topic": "Recurrent Neural Networks and LSTMs"
+    },
+    {
+      "title": "Transformer Architecture",
+      "description": "Understand attention mechanisms, self-attention, and the transformer model that powers modern NLP and beyond.",
+      "estimated_minutes": 140,
+      "accent_color": "purple",
+      "topic": "Transformer Architecture and Attention Mechanisms"
+    },
+    {
+      "title": "Reinforcement Learning",
+      "description": "Explore reward-based learning, Q-learning, policy gradients, and how agents learn to make decisions.",
+      "estimated_minutes": 130,
+      "accent_color": "green",
+      "topic": "Reinforcement Learning Fundamentals"
+    },
+    {
+      "title": "Generative AI & Diffusion Models",
+      "description": "Dive into GANs, VAEs, and diffusion models powering image generation and creative AI applications.",
+      "estimated_minutes": 110,
+      "accent_color": "orange",
+      "topic": "Generative AI and Diffusion Models"
+    }
+  ]
+}

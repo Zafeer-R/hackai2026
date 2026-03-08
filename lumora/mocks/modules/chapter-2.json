@@ -1,0 +1,38 @@
+{
+  "chapter_id": 2,
+  "modules": [
+    {
+      "id": "mod_2_1",
+      "type": 4,
+      "content": {
+        "title": "From One Neuron to Many",
+        "body": "A single neuron can only learn simple patterns. The magic happens when we connect many neurons together into **layers**.\n\nA neural network typically has:\n- **Input layer**: receives the raw data\n- **Hidden layers**: where the learning happens (one or more layers)\n- **Output layer**: produces the final prediction\n\nEach neuron in a layer connects to every neuron in the next layer. Each connection has its own weight. The network learns by adjusting all these weights.\n\nA network with just one hidden layer of sufficient width can theoretically approximate any continuous function — this is called the **Universal Approximation Theorem**.",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_2_2",
+      "type": 1,
+      "content": {
+        "question": "What is the 'forward pass' in a neural network?",
+        "options": [
+          "The process of updating weights after computing gradients",
+          "The process of passing input data through the network layer by layer to get an output",
+          "The process of loading training data into memory",
+          "The process of initializing random weights"
+        ],
+        "correct_index": 1,
+        "explanation": "The forward pass is when input data flows through the network from the input layer, through hidden layers, to the output layer. Each layer transforms the data using weights, biases, and activation functions."
+      }
+    },
+    {
+      "id": "mod_2_3",
+      "type": 4,
+      "content": {
+        "title": "The Forward Pass",
+        "body": "During the **forward pass**, data flows from input to output:\n\n1. Input values enter the first layer\n2. Each neuron computes its weighted sum + bias\n3. The activation function is applied\n4. The outputs become inputs to the next layer\n5. Repeat until the output layer\n\nThis is essentially a series of matrix multiplications and element-wise function applications:\n\n**Layer 1**: h₁ = σ(W₁ · x + b₁)\n**Layer 2**: h₂ = σ(W₂ · h₁ + b₂)\n**Output**: ŷ = σ(W₃ · h₂ + b₃)\n\nThe forward pass gives us a **prediction** (ŷ). But how do we know if it's any good? That's where loss functions come in — which we'll cover next!",
+        "image_url": null
+      }
+    }
+  ]
+}

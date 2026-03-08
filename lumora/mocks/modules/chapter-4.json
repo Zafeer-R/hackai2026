@@ -1,0 +1,53 @@
+{
+  "chapter_id": 4,
+  "modules": [
+    {
+      "id": "mod_4_1",
+      "type": 4,
+      "content": {
+        "title": "The Backward Pass",
+        "body": "Now comes the heart of it: **backpropagation** — short for \"backward propagation of errors.\"\n\nHere's how it works:\n\n1. **Compute the loss** at the output layer\n2. **Calculate the gradient** of the loss with respect to the output layer's weights\n3. **Propagate backward**: using the chain rule, compute gradients for each layer, working from output to input\n4. Each layer passes its error signal to the previous layer\n\nThe key idea: we don't need to recompute everything from scratch. Each layer caches its intermediate values during the forward pass, then reuses them during the backward pass.\n\nIt's like a waterfall flowing in reverse — the error trickles back through the network, telling each weight exactly how much it contributed to the mistake.",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_4_2",
+      "type": 1,
+      "content": {
+        "question": "During backpropagation, in what order are gradients computed?",
+        "options": [
+          "From the input layer to the output layer",
+          "Randomly across all layers simultaneously",
+          "From the output layer backward to the input layer",
+          "Only for the last hidden layer"
+        ],
+        "correct_index": 2,
+        "explanation": "Backpropagation starts at the output layer where the loss is computed, then works backward through each layer using the chain rule. Each layer computes its local gradient and passes the error signal to the previous layer."
+      }
+    },
+    {
+      "id": "mod_4_3",
+      "type": 4,
+      "content": {
+        "title": "A Concrete Example",
+        "body": "Let's trace a simple 2-layer network:\n\n**Forward pass:**\n- Input: x = 2\n- Hidden: h = ReLU(w₁·x + b₁) = ReLU(3·2 + 1) = 7\n- Output: ŷ = w₂·h + b₂ = 0.5·7 + 0 = 3.5\n- True label: y = 5\n- Loss (MSE): L = (5 - 3.5)² = 2.25\n\n**Backward pass:**\n- ∂L/∂ŷ = -2(y - ŷ) = -2(5 - 3.5) = -3\n- ∂L/∂w₂ = ∂L/∂ŷ · h = -3 · 7 = -21\n- ∂L/∂h = ∂L/∂ŷ · w₂ = -3 · 0.5 = -1.5\n- ∂L/∂w₁ = ∂L/∂h · x = -1.5 · 2 = -3 (since ReLU gradient = 1 here)\n\nThe negative gradients tell us: **increase** w₁ and w₂ to reduce the loss!",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_4_4",
+      "type": 1,
+      "content": {
+        "question": "What information from the forward pass is reused during backpropagation?",
+        "options": [
+          "The learning rate and optimizer settings",
+          "The cached intermediate activations and pre-activation values",
+          "The total number of training examples",
+          "The names and types of each layer"
+        ],
+        "correct_index": 1,
+        "explanation": "During the forward pass, each layer saves its intermediate values (activations, pre-activation sums). These cached values are essential for computing local gradients efficiently during the backward pass."
+      }
+    }
+  ]
+}

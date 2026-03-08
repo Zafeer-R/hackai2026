@@ -1,0 +1,16 @@
+{
+  "name": "Alex Chen",
+  "background": "Computer Science undergraduate with 2 years of Python experience. Comfortable with basic linear algebra and calculus. Has built a few web apps and dabbled in data analysis with pandas.",
+  "skills": [
+    { "skill": "Python", "level": "intermediate", "confidence": 0.75 },
+    { "skill": "Linear Algebra", "level": "intermediate", "confidence": 0.6 },
+    { "skill": "Calculus", "level": "intermediate", "confidence": 0.55 },
+    { "skill": "Data Analysis", "level": "beginner", "confidence": 0.4 },
+    { "skill": "Machine Learning", "level": "beginner", "confidence": 0.2 },
+    { "skill": "Neural Networks", "level": "beginner", "confidence": 0.1 },
+    { "skill": "Web Development", "level": "intermediate", "confidence": 0.7 }
+  ],
+  "interests": ["artificial intelligence", "deep learning", "computer vision", "natural language processing"],
+  "linkedin": "https://linkedin.com/in/alexchen",
+  "github": "https://github.com/alexchen"
+}

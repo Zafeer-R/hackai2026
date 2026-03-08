@@ -1,0 +1,53 @@
+{
+  "chapter_id": 1,
+  "modules": [
+    {
+      "id": "mod_1_1",
+      "type": 4,
+      "content": {
+        "title": "What is a Neuron?",
+        "body": "Imagine a tiny decision-maker that takes in several numbers, weighs their importance, adds them up, and then decides whether to 'fire' or stay quiet.\n\nThat's essentially what an artificial neuron does:\n\n1. **Inputs** (x₁, x₂, ..., xₙ) — the data coming in\n2. **Weights** (w₁, w₂, ..., wₙ) — how important each input is\n3. **Bias** (b) — a baseline threshold\n4. **Activation function** (σ) — the decision rule\n\nThe neuron computes: **output = σ(w₁x₁ + w₂x₂ + ... + wₙxₙ + b)**\n\nThink of it like a judge scoring a diving competition. Each judge (weight) has a different opinion about each aspect of the dive (input). The final score is a weighted combination, adjusted by a baseline, and then mapped to a final rating.",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_1_2",
+      "type": 1,
+      "content": {
+        "question": "What does a single artificial neuron compute?",
+        "options": [
+          "A weighted sum of inputs plus bias, passed through an activation function",
+          "A random number based on the inputs",
+          "The average of all inputs",
+          "The maximum value among all inputs"
+        ],
+        "correct_index": 0,
+        "explanation": "A neuron takes inputs, multiplies each by its corresponding weight, sums them with a bias term, and passes the result through an activation function to produce its output."
+      }
+    },
+    {
+      "id": "mod_1_3",
+      "type": 4,
+      "content": {
+        "title": "Why Activation Functions?",
+        "body": "Without activation functions, a neural network would just be a fancy way to do linear algebra. No matter how many layers you stack, the output would always be a linear combination of inputs.\n\n**Activation functions introduce non-linearity** — they let the network learn curves, boundaries, and complex patterns.\n\nCommon activation functions:\n- **ReLU** (Rectified Linear Unit): max(0, x) — simple, fast, most popular\n- **Sigmoid**: 1/(1+e⁻ˣ) — squashes output to (0,1), great for probabilities\n- **Tanh**: similar to sigmoid but outputs (-1,1)\n\nReLU is like a gate that only opens for positive values. Sigmoid is like a dimmer switch that smoothly transitions from off to on.",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_1_4",
+      "type": 1,
+      "content": {
+        "question": "Why are activation functions important in neural networks?",
+        "options": [
+          "They make the network run faster",
+          "They introduce non-linearity, allowing the network to learn complex patterns",
+          "They reduce the number of parameters",
+          "They prevent the network from overfitting"
+        ],
+        "correct_index": 1,
+        "explanation": "Without activation functions, the entire network would collapse into a single linear transformation. Non-linearity is what gives neural networks their power to learn complex, non-linear relationships in data."
+      }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "roadmap_id": "rm_backprop_001",
+  "title": "Understanding Backpropagation",
+  "chapters": [
+    {
+      "id": 1,
+      "title": "The Neuron: Your Starting Block",
+      "summary": "Quick refresher on what a single neuron computes — weights, bias, and activation functions.",
+      "estimated_minutes": 5,
+      "accent_color": "cyan"
+    },
+    {
+      "id": 2,
+      "title": "Building a Network",
+      "summary": "How neurons connect into layers, and what happens during a forward pass through the network.",
+      "estimated_minutes": 8,
+      "accent_color": "blue"
+    },
+    {
+      "id": 3,
+      "title": "Loss Functions & The Chain Rule",
+      "summary": "How we measure mistakes and the calculus trick that makes backpropagation possible.",
+      "estimated_minutes": 10,
+      "accent_color": "purple"
+    },
+    {
+      "id": 4,
+      "title": "Backpropagation Step by Step",
+      "summary": "Walking through the backward pass — how error flows back through the network to update weights.",
+      "estimated_minutes": 12,
+      "accent_color": "green"
+    },
+    {
+      "id": 5,
+      "title": "Gradient Descent & Training",
+      "summary": "How gradients update weights, the training loop, batches, epochs — seeing the full picture.",
+      "estimated_minutes": 10,
+      "accent_color": "orange"
+    }
+  ]
+}

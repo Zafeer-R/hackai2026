@@ -1,0 +1,53 @@
+{
+  "chapter_id": 3,
+  "modules": [
+    {
+      "id": "mod_3_1",
+      "type": 4,
+      "content": {
+        "title": "What is a Loss Function?",
+        "body": "After the forward pass, we have a prediction. But how far off are we from the correct answer? That's what a **loss function** (or cost function) tells us.\n\nA loss function measures the gap between the network's prediction (ŷ) and the true label (y). The goal of training is to **minimize** this gap.\n\nCommon loss functions:\n- **Mean Squared Error (MSE)**: L = (1/n) Σ(yᵢ - ŷᵢ)² — good for regression\n- **Cross-Entropy Loss**: L = -Σ yᵢ log(ŷᵢ) — the go-to for classification\n\nThink of the loss as a landscape of mountains and valleys. Training is like finding the lowest valley — the point where our predictions best match reality.",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_3_2",
+      "type": 1,
+      "content": {
+        "question": "What is the purpose of a loss function in a neural network?",
+        "options": [
+          "To initialize the weights of the network",
+          "To measure how far the network's predictions are from the true values",
+          "To determine the number of layers needed",
+          "To speed up the forward pass computation"
+        ],
+        "correct_index": 1,
+        "explanation": "The loss function quantifies the error between the predicted output and the actual target. It gives the network a concrete number to minimize during training."
+      }
+    },
+    {
+      "id": "mod_3_3",
+      "type": 4,
+      "content": {
+        "title": "The Chain Rule: Backbone of Backprop",
+        "body": "Here's the key insight: a neural network is really just a **composition of functions**. Layer after layer, each transforming the output of the previous one.\n\nTo figure out how to adjust each weight, we need to know: *how does changing this weight affect the final loss?*\n\nThe **chain rule** from calculus gives us exactly that:\n\n**∂L/∂w = (∂L/∂ŷ) · (∂ŷ/∂h) · (∂h/∂w)**\n\nEach factor in this chain answers a local question:\n- How does the loss change with the prediction?\n- How does the prediction change with the hidden layer?\n- How does the hidden layer change with the weight?\n\nMultiply them together, and you get the gradient — the direction to nudge the weight to reduce the loss.",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_3_4",
+      "type": 1,
+      "content": {
+        "question": "Why is the chain rule essential for training neural networks?",
+        "options": [
+          "It determines the optimal number of epochs for training",
+          "It allows us to compute gradients through composed functions layer by layer",
+          "It prevents overfitting by regularizing weights",
+          "It automatically selects the best activation function"
+        ],
+        "correct_index": 1,
+        "explanation": "The chain rule lets us decompose the gradient of the loss with respect to any weight into a product of local gradients. This is how error signals propagate backward through the layers."
+      }
+    }
+  ]
+}

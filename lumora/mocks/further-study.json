@@ -1,0 +1,40 @@
+{
+  "recommendations": [
+    {
+      "title": "3Blue1Brown: Neural Networks Series",
+      "type": "video",
+      "reference": "https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi",
+      "reason": "The best visual explanation of backpropagation available. Grant Sanderson's animations make the math intuitive and beautiful."
+    },
+    {
+      "title": "Neural Networks and Deep Learning — Michael Nielsen",
+      "type": "book",
+      "reference": "http://neuralnetworksanddeeplearning.com/chap2.html",
+      "reason": "Chapter 2 builds backpropagation from first principles with clear notation and worked examples. Free to read online."
+    },
+    {
+      "title": "Stanford CS231n: Backpropagation & Optimization",
+      "type": "article",
+      "reference": "https://cs231n.github.io/optimization-2/",
+      "reason": "Detailed notes with computational graph examples and gradient derivations. A natural next step for deeper understanding."
+    },
+    {
+      "title": "Andrej Karpathy: Building micrograd",
+      "type": "video",
+      "reference": "https://www.youtube.com/watch?v=VMj-3S1tku0",
+      "reason": "Build an autograd engine from scratch in Python. Seeing backpropagation implemented makes the theory click."
+    },
+    {
+      "title": "Fast.ai: Practical Deep Learning for Coders",
+      "type": "course",
+      "reference": "https://course.fast.ai/",
+      "reason": "Now that you understand the theory, apply it. Top-down practical approach to training real neural networks."
+    },
+    {
+      "title": "Distill.pub: Backpropagation Interactive Visualization",
+      "type": "article",
+      "reference": "https://distill.pub/2017/momentum/",
+      "reason": "Interactive article exploring gradient descent and momentum with beautiful visualizations you can play with."
+    }
+  ]
+}

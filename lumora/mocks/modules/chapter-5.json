@@ -1,0 +1,53 @@
+{
+  "chapter_id": 5,
+  "modules": [
+    {
+      "id": "mod_5_1",
+      "type": 4,
+      "content": {
+        "title": "Gradient Descent: Learning from Mistakes",
+        "body": "Now that we have gradients for every weight, what do we do with them?\n\n**Gradient descent** updates each weight in the direction that reduces the loss:\n\n**w_new = w_old - η · (∂L/∂w)**\n\nWhere **η** (eta) is the **learning rate** — a small number that controls step size.\n\n- Too large → the network overshoots and diverges\n- Too small → training takes forever\n- Just right → smooth convergence to a good solution\n\nIn practice, we rarely use all data at once. Instead we use:\n- **Stochastic GD (SGD)**: one example at a time\n- **Mini-batch GD**: a small batch (e.g., 32 or 64 examples)\n- **Adam**: an adaptive method that adjusts the learning rate per-parameter",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_5_2",
+      "type": 1,
+      "content": {
+        "question": "What happens if the learning rate is set too high during training?",
+        "options": [
+          "The model trains slower but more accurately",
+          "The model's weights update too aggressively, causing the loss to diverge",
+          "The model automatically switches to a smaller learning rate",
+          "The gradients become zero for all layers"
+        ],
+        "correct_index": 1,
+        "explanation": "A learning rate that's too large causes the weight updates to overshoot the optimal values. Instead of converging toward a minimum, the loss function oscillates wildly or increases — the model fails to learn."
+      }
+    },
+    {
+      "id": "mod_5_3",
+      "type": 4,
+      "content": {
+        "title": "The Training Loop: Putting It All Together",
+        "body": "Training a neural network is a loop of three steps repeated thousands of times:\n\n```\nfor each epoch:\n  for each mini-batch:\n    1. Forward pass  → compute predictions\n    2. Compute loss  → how wrong are we?\n    3. Backward pass  → compute gradients\n    4. Update weights → gradient descent step\n```\n\n**Epoch**: one complete pass through the entire training dataset\n**Batch**: a subset of training examples processed together\n**Iteration**: one forward + backward + update cycle on a single batch\n\nAs training progresses, the loss should decrease. We monitor it on a **validation set** (data the network hasn't seen) to make sure it's genuinely learning, not just memorizing.\n\nWhen the validation loss stops improving, we stop — that's our trained model!",
+        "image_url": null
+      }
+    },
+    {
+      "id": "mod_5_4",
+      "type": 1,
+      "content": {
+        "question": "What is an 'epoch' in neural network training?",
+        "options": [
+          "A single weight update step",
+          "One complete pass through the entire training dataset",
+          "The time it takes for the loss to reach zero",
+          "The number of layers in the network"
+        ],
+        "correct_index": 1,
+        "explanation": "An epoch means the network has seen every example in the training set exactly once. Training typically runs for many epochs, with the network's weights being updated multiple times per epoch (once per mini-batch)."
+      }
+    }
+  ]
+}
