@@ -4,6 +4,10 @@
 
 .venv/
 venv/
+.uv/
+uv.lock
+.python-version
+pyproject.toml
 
 __pycache__/
 *.py[cod]
