@@ -24,12 +24,15 @@ class GoalOutput(BaseModel):
 
 async def run_text_test() -> GoalOutput:
     print(f"Connecting to {WS_URL}")
+    sent_initial_message = False
 
     async with connect(WS_URL, open_timeout=10, close_timeout=5) as websocket:
-        print(f"USER: {INITIAL_MESSAGE}")
-        await websocket.send(json.dumps({"text": INITIAL_MESSAGE}))
-
         while True:
+            if not sent_initial_message:
+                print(f"USER: {INITIAL_MESSAGE}")
+                await websocket.send(json.dumps({"text": INITIAL_MESSAGE}))
+                sent_initial_message = True
+
             raw_message = await asyncio.wait_for(websocket.recv(), timeout=60)
             payload: dict[str, Any] = json.loads(raw_message)
 
@@ -38,6 +41,8 @@ async def run_text_test() -> GoalOutput:
                 print(f"AI: {text}")
                 if text.startswith("Goal extraction failed:") or text.startswith("Unable to start goal extraction:"):
                     raise RuntimeError(text)
+                if "Continuing without personalization." in text:
+                    continue
                 print(f"USER: {FOLLOW_UP_ANSWER}")
                 await websocket.send(json.dumps({"text": FOLLOW_UP_ANSWER}))
                 continue

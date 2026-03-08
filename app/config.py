@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     MONGO_URI: str = ""
     MONGO_DB: str = "hackai"
     MONGO_COLLECTION: str = "user_roadmaps"
+    MONGO_USER_PROFILES_COLLECTION: str = "user_profiles"
 
     # LLM settings
     MODEL_NAME: str = "gemini-2.5-flash"
