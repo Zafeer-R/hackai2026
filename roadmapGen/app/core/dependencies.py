@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from app.core.config import Settings, get_settings
+from app.core.config import get_settings
 from app.providers.gemini import GeminiProvider
 from app.repository.mongodb import MongoRoadmapRepository
 from app.services.roadmap_service import RoadmapService
@@ -14,7 +14,7 @@ def get_repository() -> MongoRoadmapRepository:
 
 @lru_cache
 def get_roadmap_service() -> RoadmapService:
-    settings: Settings = get_settings()
+    settings = get_settings()
     if not settings.gemini_api_key:
         raise ValueError("GEMINI_API_KEY is required")
     provider = GeminiProvider(

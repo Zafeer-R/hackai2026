@@ -85,12 +85,12 @@
   </head>
   <body>
     <div id="root"></div>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel">
-      const TEXT_WS_URL = "ws://localhost:8000/ws/text";
-      const VOICE_WS_URL = "ws://localhost:8000/ws/voice";
+    <script type="text/babel" data-presets="react">
+      const TEXT_WS_URL = (userId) => `ws://localhost:8000/ws/text?user_id=${encodeURIComponent(userId)}`;
+      const VOICE_WS_URL = (userId) => `ws://localhost:8000/ws/voice?user_id=${encodeURIComponent(userId)}`;
       const INPUT_RATE = 16000;
       const OUTPUT_RATE = 24000;
       const SEND_MS = 250;
@@ -135,22 +135,55 @@
         return out;
       }
 
-      function GoalCard({ goal, onStartOver }) {
+      function UserIdScreen({ onConfirm }) {
+        const [value, setValue] = React.useState("");
+        const submit = (e) => {
+          e.preventDefault();
+          const id = value.trim();
+          if (id) onConfirm(id);
+        };
         return (
-          <section className="panel goal">
-            <h2>{goal.goal}</h2>
-            <p className="goal-copy">{goal.description}</p>
-            <div className="goal-grid">
-              <div className="field"><div className="label">Level</div><div className="value">{goal.level}</div></div>
-              <div className="field"><div className="label">Time Per Day</div><div className="value">{goal.time_per_day_minutes} minutes</div></div>
-              <div className="field wide"><div className="label">Context</div><div className="value">{goal.context}</div></div>
-            </div>
-            <button className="restart" onClick={onStartOver}>Start Over</button>
+          <section className="panel" style={{ padding: 36, maxWidth: 480, margin: "60px auto" }}>
+            <h2 style={{ marginTop: 0 }}>Welcome</h2>
+            <p style={{ color: "var(--muted)", marginBottom: 24 }}>Enter your user ID to get started.</p>
+            <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <input
+                autoFocus
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="e.g. alice or user-123"
+                style={{ padding: "14px 16px", borderRadius: 16, border: "1px solid #cfc5b3", fontSize: "1rem", fontFamily: "inherit", color: "var(--text)", background: "#fff" }}
+              />
+              <button className="btn" type="submit" disabled={!value.trim()} style={{ alignSelf: "flex-end" }}>
+                Continue
+              </button>
+            </form>
           </section>
         );
       }
 
-      function TextMode({ onGoalComplete }) {
+      function RoadmapView({ goal, roadmap }) {
+        return (
+          <section className="panel goal">
+            <h2>{goal.goal}</h2>
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+              {(roadmap.modules || []).map((mod, i) => (
+                <div key={i} className="field wide">
+                  <div className="label">Module {i + 1}</div>
+                  <div className="value" style={{ fontWeight: 600, marginBottom: 6 }}>{mod.title}</div>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", lineHeight: 1.8 }}>
+                    {(mod.chapters || []).map((ch, j) => (
+                      <li key={j}>{ch.title}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+
+      function TextMode({ onGoalComplete, userId }) {
         const [messages, setMessages] = React.useState([]);
         const [input, setInput] = React.useState("");
         const [loading, setLoading] = React.useState(false);
@@ -164,7 +197,7 @@
           setStatus("connecting");
           setErrorText("");
           setLoading(false);
-          const ws = new WebSocket(TEXT_WS_URL);
+          const ws = new WebSocket(TEXT_WS_URL(userId));
           wsRef.current = ws;
           ws.onopen = () => setStatus("open");
           ws.onmessage = (event) => {
@@ -176,7 +209,7 @@
                 return;
               }
               if (payload.type === "goal_complete" && payload.goal) {
-                onGoalComplete(payload.goal);
+                onGoalComplete({ goal: payload.goal, roadmap: payload.roadmap });
                 return;
               }
             } catch (error) {
@@ -252,7 +285,7 @@
         );
       }
 
-      function VoiceMode({ onGoalComplete }) {
+      function VoiceMode({ onGoalComplete, userId }) {
         const [voiceState, setVoiceState] = React.useState("idle");
         const [errorText, setErrorText] = React.useState("");
         const [active, setActive] = React.useState(false);
@@ -454,7 +487,7 @@
             setErrorText("Microphone capture is not supported in this browser.");
             return;
           }
-          const ws = new WebSocket(VOICE_WS_URL);
+          const ws = new WebSocket(VOICE_WS_URL(userId));
           ws.binaryType = "arraybuffer";
           wsRef.current = ws;
           ws.onopen = async () => {
@@ -484,7 +517,7 @@
                 if (payload.type === "goal_complete" && payload.goal) {
                   logVoice("goal_complete received", payload.goal);
                   await stopConversation(true);
-                  onGoalComplete(payload.goal);
+                  onGoalComplete({ goal: payload.goal, roadmap: payload.roadmap });
                   return;
                 }
                 if (payload.type === "message" && payload.text) {
@@ -589,25 +622,34 @@
       }
 
       function App() {
+        const [userId, setUserId] = React.useState(null);
         const [mode, setMode] = React.useState("text");
-        const [goal, setGoal] = React.useState(null);
+        const [result, setResult] = React.useState(null);
+
+        if (!userId) {
+          return <main className="app"><UserIdScreen onConfirm={setUserId} /></main>;
+        }
 
         return (
           <main className="app">
             <header>
               <span className="eyebrow">Goal Extraction Demo</span>
-              <h1>{goal ? "Learning Goal Ready" : mode === "text" ? "Text Mode" : "Voice Mode"}</h1>
-              <p className="subtitle">
-                {goal ? "Your conversation is complete. The module has distilled the exchange into a tighter, actionable learning target." : "Switch between text and voice. Both modes funnel into the same structured goal output."}
-              </p>
-              {!goal ? (
-                <div className="toggle">
-                  <button className={`tab ${mode === "text" ? "active" : ""}`} onClick={() => setMode("text")}>Text</button>
-                  <button className={`tab ${mode === "voice" ? "active" : ""}`} onClick={() => setMode("voice")}>Voice</button>
-                </div>
+              <h1>{result ? "Your Roadmap" : mode === "text" ? "Text Mode" : "Voice Mode"}</h1>
+              {!result ? (
+                <>
+                  <div className="toggle">
+                    <button className={`tab ${mode === "text" ? "active" : ""}`} onClick={() => setMode("text")}>Text</button>
+                    <button className={`tab ${mode === "voice" ? "active" : ""}`} onClick={() => setMode("voice")}>Voice</button>
+                  </div>
+                  <p style={{ marginTop: 8, fontSize: ".85rem", color: "var(--muted)" }}>Signed in as <strong>{userId}</strong></p>
+                </>
               ) : null}
             </header>
-            {goal ? <GoalCard goal={goal} onStartOver={() => setGoal(null)} /> : mode === "text" ? <TextMode onGoalComplete={setGoal} /> : <VoiceMode onGoalComplete={setGoal} />}
+            {result
+              ? <RoadmapView goal={result.goal} roadmap={result.roadmap} />
+              : mode === "text"
+                ? <TextMode onGoalComplete={setResult} userId={userId} />
+                : <VoiceMode onGoalComplete={setResult} userId={userId} />}
           </main>
         );
       }

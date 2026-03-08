@@ -6,7 +6,6 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.core.config import Settings
 from app.providers.base import LLMProvider, LLMProviderError
 from app.repository.mongodb import RepositoryError
 from app.schemas.api import (
@@ -90,6 +89,45 @@ class RoadmapService:
                 continue
 
         raise GenerationError(
+            f"Failed to generate a valid roadmap in {max_attempts} attempts: {last_error}"
+        )
+
+    def generate_dict(self, goal: str, user_id: str) -> dict:
+        """Pydantic-free version of generate(). Returns a plain dict."""
+        system_prompt = build_system_prompt()
+        user_prompt = build_user_prompt(goal=goal)
+
+        last_error: Exception | None = None
+        max_attempts = self.settings.llm_max_retries + 1
+        for attempt in range(max_attempts):
+            try:
+                raw_payload = self.provider.generate_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                )
+                modules = []
+                for m in raw_payload.get("modules", [])[:7]:
+                    title = str(m.get("title", "")).strip()[:140] or "Untitled Module"
+                    chapters = [
+                        {"title": str(c.get("title", "")).strip()[:140]}
+                        for c in m.get("chapters", [])
+                        if str(c.get("title", "")).strip()
+                    ][:4]
+                    if not chapters:
+                        chapters = [{"title": f"Core concepts of {title}"}]
+                    modules.append({"title": title, "chapters": chapters})
+
+                self.repository.upsert_user_roadmap(
+                    user_id=user_id,
+                    goal=goal,
+                    modules=modules,
+                )
+                return {"modules": modules}
+            except Exception as exc:
+                last_error = exc
+                continue
+
+        raise RuntimeError(
             f"Failed to generate a valid roadmap in {max_attempts} attempts: {last_error}"
         )
 

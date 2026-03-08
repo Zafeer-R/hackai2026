@@ -7,15 +7,12 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import PyMongoError
 
-from app.core.config import Settings
-
-
 class RepositoryError(RuntimeError):
     pass
 
 
 class MongoRoadmapRepository:
-    def __init__(self, settings: Settings, client: MongoClient | None = None) -> None:
+    def __init__(self, settings: object, client: MongoClient | None = None) -> None:
         self._client = client or MongoClient(settings.mongo_uri)
         self._db = self._client[settings.mongo_db]
         self._collection: Collection = self._db[settings.mongo_collection]

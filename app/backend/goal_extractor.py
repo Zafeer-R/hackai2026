@@ -2,13 +2,20 @@ import asyncio
 import json
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from google import genai
 from google.genai import types
 
 from app.config import get_settings
+from app.backend.roadmap_generator import generate_roadmap
 
 router = APIRouter()
+
+DEFAULT_USER_ID = "default-user"
+
+
+async def _generate_roadmap(goal: dict, user_id: str = DEFAULT_USER_ID) -> dict:
+    return await asyncio.to_thread(generate_roadmap, goal["goal"], user_id)
 
 
 def _build_text_client() -> genai.Client:
@@ -81,51 +88,25 @@ class GoalExtractionSession:
 
 
 @router.websocket("/ws/text")
-async def text_goal_extractor(websocket: WebSocket) -> None:
+async def text_goal_extractor(websocket: WebSocket, user_id: str = Query(default=DEFAULT_USER_ID)) -> None:
     await websocket.accept()
 
     try:
-        session = GoalExtractionSession()
-    except Exception as exc:
-        await websocket.send_json(
-            {
-                "type": "message",
-                "text": f"Unable to start goal extraction: {exc}",
-            }
-        )
-        await websocket.close(code=1011)
-        return
+        payload = await websocket.receive_json()
+        user_text = str(payload.get("text", "")).strip() if isinstance(payload, dict) else ""
 
-    try:
-        while True:
-            payload = await websocket.receive_json()
-            user_text = str(payload.get("text", "")).strip() if isinstance(payload, dict) else ""
+        if not user_text:
+            await websocket.send_json({"type": "message", "text": "Send a JSON message with a non-empty `text` field."})
+            await websocket.close()
+            return
 
-            if not user_text:
-                await websocket.send_json(
-                    {
-                        "type": "message",
-                        "text": "Send a JSON message with a non-empty `text` field.",
-                    }
-                )
-                continue
-
-            gemini_response = await session.send_user_message(user_text)
-            goal = _extract_goal_json(gemini_response)
-
-            if goal is not None:
-                await websocket.send_json({"type": "goal_complete", "goal": goal})
-            else:
-                await websocket.send_json({"type": "message", "text": gemini_response})
+        goal = {"goal": user_text}
+        roadmap = await _generate_roadmap(goal, user_id)
+        await websocket.send_json({"type": "goal_complete", "goal": goal, "roadmap": roadmap})
     except WebSocketDisconnect:
         return
     except Exception as exc:
-        await websocket.send_json(
-            {
-                "type": "message",
-                "text": f"Goal extraction failed: {exc}",
-            }
-        )
+        await websocket.send_json({"type": "message", "text": f"Goal extraction failed: {exc}"})
         await websocket.close(code=1011)
 
 
@@ -190,6 +171,7 @@ async def _voice_receive_loop(
     websocket: WebSocket,
     session: Any,
     stop_event: asyncio.Event,
+    user_id: str = DEFAULT_USER_ID,
 ) -> None:
     async for turn in session.receive():
         if turn.data:
@@ -201,7 +183,8 @@ async def _voice_receive_loop(
             goal = _extract_goal_json(turn.text)
             if goal is not None:
                 print("[voice] goal_complete detected")
-                await websocket.send_json({"type": "goal_complete", "goal": goal})
+                roadmap = await _generate_roadmap(goal, user_id)
+                await websocket.send_json({"type": "goal_complete", "goal": goal, "roadmap": roadmap})
                 stop_event.set()
                 return
 
@@ -209,7 +192,7 @@ async def _voice_receive_loop(
 
 
 @router.websocket("/ws/voice")
-async def voice_goal_extractor(websocket: WebSocket) -> None:
+async def voice_goal_extractor(websocket: WebSocket, user_id: str = Query(default=DEFAULT_USER_ID)) -> None:
     await websocket.accept()
     print("[voice] websocket accepted")
 
@@ -245,7 +228,7 @@ async def voice_goal_extractor(websocket: WebSocket) -> None:
         ) as session:
             print("[voice] Gemini Live session connected")
             send_task = asyncio.create_task(_voice_send_loop(websocket, session, stop_event))
-            receive_task = asyncio.create_task(_voice_receive_loop(websocket, session, stop_event))
+            receive_task = asyncio.create_task(_voice_receive_loop(websocket, session, stop_event, user_id))
 
             try:
                 await asyncio.gather(send_task, receive_task)
