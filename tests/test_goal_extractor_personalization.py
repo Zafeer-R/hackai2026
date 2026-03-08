@@ -226,6 +226,20 @@ def test_build_goal_extraction_prompt_includes_personalization_rules() -> None:
     assert '"current_role":"Software Engineer"' in prompt
 
 
+def test_build_goal_extraction_prompt_inserts_configured_follow_up_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _reset_settings_cache(monkeypatch)
+    monkeypatch.setenv("GOAL_EXTRACTION_MAX_FOLLOW_UP_QUESTIONS", "4")
+    get_settings.cache_clear()
+
+    prompt = goal_personalization.build_goal_extraction_prompt(
+        "Ask at most {{MAX_FOLLOW_UP_QUESTIONS}} follow-up questions."
+    )
+
+    assert prompt == "Ask at most 4 follow-up questions."
+
+
 def test_text_websocket_forces_json_after_follow_up_limit(
     monkeypatch: pytest.MonkeyPatch,
     goal_extractor_module: tuple[Any, type],

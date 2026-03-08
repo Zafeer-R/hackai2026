@@ -10,9 +10,9 @@ from google import genai
 from google.genai import types
 
 from app.backend.goal_personalization import (
-    FORCE_FINAL_JSON_PROMPT,
-    MAX_ASSISTANT_QUESTION_TURNS,
+    build_force_final_json_prompt,
     build_goal_extraction_prompt,
+    get_max_assistant_question_turns,
     load_user_profile,
 )
 from app.backend.roadmap_generator import generate_roadmap
@@ -77,6 +77,8 @@ class GoalExtractionSession:
         self.system_instruction = system_instruction
         self.history: list[types.Content] = []
         self.assistant_question_turns = 0
+        self.max_assistant_question_turns = get_max_assistant_question_turns()
+        self.force_final_json_prompt = build_force_final_json_prompt()
 
     async def _generate_response(self, *, force_json: bool = False) -> str:
         contents = list(self.history)
@@ -88,7 +90,7 @@ class GoalExtractionSession:
             contents.append(
                 types.Content(
                     role="user",
-                    parts=[types.Part(text=FORCE_FINAL_JSON_PROMPT)],
+                    parts=[types.Part(text=self.force_final_json_prompt)],
                 )
             )
             config_kwargs["responseMimeType"] = "application/json"
@@ -125,7 +127,7 @@ class GoalExtractionSession:
             self._append_model_response(response_text)
             return response_text, goal
 
-        if self.assistant_question_turns >= MAX_ASSISTANT_QUESTION_TURNS:
+        if self.assistant_question_turns >= self.max_assistant_question_turns:
             forced_response = await self._generate_response(force_json=True)
             forced_goal = _extract_goal_json(forced_response)
             if forced_goal is None:
@@ -143,6 +145,8 @@ class VoiceConversationState:
     assistant_question_turns: int = 0
     finalize_requested: bool = False
     model_text_parts: list[str] = field(default_factory=list)
+    max_assistant_question_turns: int = field(default_factory=get_max_assistant_question_turns)
+    force_final_json_prompt: str = field(default_factory=build_force_final_json_prompt)
 
 
 def _is_voice_turn_complete(turn: Any) -> bool:
@@ -155,21 +159,21 @@ def _is_voice_turn_complete(turn: Any) -> bool:
     )
 
 
-async def _request_voice_final_json(session: Any) -> None:
+async def _request_voice_final_json(session: Any, prompt: str) -> None:
     send_client_content = getattr(session, "send_client_content", None)
     if callable(send_client_content):
         await send_client_content(
             turns=[
                 {
                     "role": "user",
-                    "parts": [{"text": FORCE_FINAL_JSON_PROMPT}],
+                    "parts": [{"text": prompt}],
                 }
             ],
             turn_complete=True,
         )
         return
 
-    await session.send_realtime_input(text=FORCE_FINAL_JSON_PROMPT)
+    await session.send_realtime_input(text=prompt)
 
 
 async def _voice_send_loop(
@@ -213,12 +217,12 @@ async def _voice_send_loop(
                     print("[voice] received end_audio control message")
                     await session.send_realtime_input(audio_stream_end=True)
                     if (
-                        state.assistant_question_turns >= MAX_ASSISTANT_QUESTION_TURNS
+                        state.assistant_question_turns >= state.max_assistant_question_turns
                         and not state.finalize_requested
                     ):
                         print("[voice] requesting forced JSON finalization")
                         state.finalize_requested = True
-                        await _request_voice_final_json(session)
+                        await _request_voice_final_json(session, state.force_final_json_prompt)
                     continue
 
         audio_chunk = message.get("bytes")

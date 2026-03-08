@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
 from pathlib import Path
@@ -40,6 +41,7 @@ class Settings(BaseSettings):
     # LLM settings
     MODEL_NAME: str = "gemini-2.5-flash"
     VOICE_MODEL: str = "gemini-2.5-flash-native-audio-preview-12-2025"
+    GOAL_EXTRACTION_MAX_FOLLOW_UP_QUESTIONS: int = Field(default=2, ge=0)
     LLM_TIMEOUT_SEC: int = 15
     LLM_MAX_RETRIES: int = 0
     LOG_LEVEL: str = "DEBUG"
